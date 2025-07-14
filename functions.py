@@ -10,7 +10,6 @@ import pickle
 from scipy.stats import unitary_group
 from tqdm import tqdm
 from scipy.linalg import fractional_matrix_power as fmp
-import math
 
 
 from numba import njit, prange#, config,
@@ -1351,6 +1350,8 @@ from quspin.basis import spin_basis_1d
 # Here we assume the magnetization m runs from -NA/2 to NA/2 in steps of 1.
 
 def build_projectors(N_A):
+    if N_A == 1:
+        return {-.5: np.array([1, 0]), .5: np.array([0, 1])}, np.eye(2)
     projectors = {}
     U_U1 = np.zeros((2**N_A, 2**N_A), dtype=np.complex128)
     row_index = 0
