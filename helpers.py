@@ -605,17 +605,29 @@ def build_fourier_basis(N=4):
     F_list = []
     for q in range(N):
         # Build F_{q,r} = E_{q+r, q}
-        for r in range(N):
-            F = np.zeros((N, N), complex)
-            F[(q + r) % N, r] = 1
-            F_list.append(F)
         # for r in range(N):
-        #     # Build F_{q,r} = (1/N) sum_m exp(-2pi i q m / N) E_{m+r, m}
         #     F = np.zeros((N, N), complex)
-        #     for m in range(N):
-        #         F[(m + r) % N, m] += 2 * np.exp(-2j * np.pi * q * m / N)
-        #     F /= N
+        #     F[(q + r) % N, r] = 1
         #     F_list.append(F)
+        for r in range(N):
+            # Build F_{q,r} = (1/N) sum_m exp(-2pi i q m / N) E_{m+r, m}
+            F = np.zeros((N, N), complex)
+            for m in range(N):
+                F[(m + r) % N, m] += 2 * np.exp(-2j * np.pi * q * m / N)
+            F /= N
+            F_list.append(F)
+    return F_list
+
+def build_fourier_basis(N=4):
+    F_list = []
+    for q in range(N):
+        for r in range(N):
+            # Build F_{q,r} = (2/N) sum_m exp(-2pi i q m / N) E_{m+r, m}
+            F = np.zeros((N, N), complex)
+            for m in range(N):
+                F[(m + r) % N, m] += 2 * np.exp(-2j * np.pi * q * m / N)
+            F /= N
+            F_list.append(F)
     return F_list
 
 def vec(mat):
@@ -639,7 +651,6 @@ def quantum_liouvillian(N: int, epsilon: float, J: float = 1.0):
         The Liouvillian is a superoperator acting on the space of density matrices.
         It has the shape (4^N, 4^N) for N qubits.   
     '''
-    
     ops = [[np.zeros((N, N), complex) for _ in range(N)] for _ in range(N)]
     for i in range(N):
         for j in range(N):
