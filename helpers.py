@@ -4,6 +4,7 @@ from scipy.special import binom
 from numba import njit, prange
 from collections import defaultdict
 import mplcursors
+from scipy.linalg import logm
 
 
 ls_styles = [
@@ -596,3 +597,137 @@ def extract_slowest_modes_from_block(
     rho_Ldag = embed_block_vector_to_full(raw_vec_l, pair_list, Ns)
 
     return rho_R, rho_Ldag, λ_r, λ_l, evals_l
+
+
+### Helper functions for quantum Z4 example (asymm_ex2.ipynb) ###
+# 1) Build the Fourier-twisted basis F_{q,r}
+def build_fourier_basis(N=4):
+    F_list = []
+    for q in range(N):
+        # Build F_{q,r} = E_{q+r, q}
+        for r in range(N):
+            F = np.zeros((N, N), complex)
+            F[(q + r) % N, r] = 1
+            F_list.append(F)
+        # for r in range(N):
+        #     # Build F_{q,r} = (1/N) sum_m exp(-2pi i q m / N) E_{m+r, m}
+        #     F = np.zeros((N, N), complex)
+        #     for m in range(N):
+        #         F[(m + r) % N, m] += 2 * np.exp(-2j * np.pi * q * m / N)
+        #     F /= N
+        #     F_list.append(F)
+    return F_list
+
+def vec(mat):
+    '''
+    Vectorize a matrix in Fortran order (column-major).'''
+    return mat.reshape(-1, order='F')
+
+def quantum_liouvillian(N: int, epsilon: float, J: float = 1.0):
+    '''
+        Build the quantum Liouvillian for a system of N qubits with nearest-neighbor
+        interactions, where epsilon is the strength of the dissipation.
+        The Liouvillian is defined as:
+        L = -i (I ⊗ H - H^T ⊗ I) + sum_c (c†c - 0.5 c†c^T - 0.5 c^T c†)
+        where H is the Hamiltonian, c are the jump operators, and I is the identity matrix.
+        The jump operators are defined as:
+        c_i = sqrt(1 + epsilon) E_{i+1, i} + sqrt(1 - epsilon) E_{i-1, i}
+        where E_{i, j} is the matrix with a 1 at position (i, j) and 0 elsewhere.
+        The Hamiltonian is defined as:
+        H = J sum_{i=0}^{N-1} (E_{i, (i+1) mod N} + E_{(i+1) mod N, i})
+        where J is the coupling strength.
+        The Liouvillian is a superoperator acting on the space of density matrices.
+        It has the shape (4^N, 4^N) for N qubits.   
+    '''
+    
+    ops = [[np.zeros((N, N), complex) for _ in range(N)] for _ in range(N)]
+    for i in range(N):
+        for j in range(N):
+            ops[i][j][i, j] = 1
+    H = np.zeros((N, N), complex)
+    for i in range(N):
+        H[i, (i + 1) % N] = J
+        H[(i + 1) % N, i] = J
+    r_plus, r_minus = np.sqrt(1 + epsilon), np.sqrt(1 - epsilon)
+    c_ops = [r_plus*ops[(i+1)%N][i] for i in range(N)] + [r_minus*ops[(i-1)%N][i] for i in range(N)]
+    Id = np.eye(N, dtype=complex)
+    L = -1j*(np.kron(Id, H) - np.kron(H.T, Id))
+    for c in c_ops:
+        cdc = c.conj().T @ c
+        L += np.kron(c.conj(), c) - 0.5*np.kron(Id, cdc) - 0.5*np.kron(cdc.T, Id)
+    return L
+
+
+def twirl_Z4(rho: np.ndarray) -> np.ndarray:
+    """
+    Apply the Z4 twirl to density matrix rho.
+    
+    Parameters
+    ----------
+    rho : np.ndarray, shape (4, 4)
+        Input density matrix.
+    
+    Returns
+    -------
+    G_rho : np.ndarray, shape (4, 4)
+        Twirled density matrix invariant under Z4.
+    """
+    # Define the cyclic shift operator U
+    dim = rho.shape[0]
+    U = np.zeros((dim, dim), dtype=complex)
+    for i in range(dim):
+        U[i, (i + 1) % dim] = 1
+    # Apply the twirl
+    G_rho = sum(np.linalg.matrix_power(U.conj().T, k) @ rho @ np.linalg.matrix_power(U, k) for k in range(4)) / 4
+    return G_rho
+
+def asymmetry(rho: np.ndarray) -> float:
+    """
+    Compute the quantum relative entropy S(rho || G[rho]) using the Z4 twirl.
+    
+    S = Tr[rho (log rho - log G[rho])]
+    
+    Parameters
+    ----------
+    rho : np.ndarray, shape (4, 4)
+        Input density matrix.
+    
+    Returns
+    -------
+    S : float
+        Quantum relative entropy asymmetry measure.
+    """
+    # Ensure Hermitian and normalized
+    assert np.allclose(rho, rho.conj().T), "Input must be Hermitian"
+    assert np.isclose(np.trace(rho), 1), "Input must be a valid density matrix (trace = 1)"
+    
+    G_rho = twirl_Z4(rho)
+    # Compute matrix logarithms
+    log_rho = logm(rho)
+    log_G_rho = logm(G_rho)
+    # Quantum relative entropy
+    S = np.real(np.trace(rho @ (log_rho - log_G_rho)))
+    return S
+
+def mode_trace_norms(rho):
+    """
+    Given a 4x4 density matrix rho, decompose it into its Z4 sectors (mu=0..3)
+    and compute the trace norm (sum of singular values) of each sectoral component.
+    """
+    N = rho.shape[0]
+    # build the single-site shift U
+    U = np.zeros((N, N), complex)
+    for i in range(N):
+        U[i, (i+1) % N] = 1
+    # superoperator projector: rho_mu = (1/4) sum_k e^{-2pi i k mu /4} U^k rho U^{-k}
+    norms = []
+    for mu in range(N):
+        rho_mu = np.zeros_like(rho, complex)
+        for k in range(N):
+            phase = np.exp(-2j * np.pi * k * mu / N)
+            rho_mu += phase * np.linalg.matrix_power(U, k) @ rho @ np.linalg.matrix_power(U, -k)
+        rho_mu /= N
+        # trace norm = sum singular values
+        svals = np.linalg.svd(rho_mu, compute_uv=False)
+        norms.append(np.sum(np.abs(svals)))
+    return norms
