@@ -1345,39 +1345,36 @@ for name, (rho, sigma) in test_pairs.items():
 '''
 
 # U1 ############
-from quspin.basis import spin_basis_1d
-# Create a dictionary to hold projectors for each magnetization subsector.
-# Here we assume the magnetization m runs from -NA/2 to NA/2 in steps of 1.
+# Create a dictionary of masks for each total-magnetization sector.  The
+# original research environment used ``quspin.basis.spin_basis_1d`` only to
+# enumerate computational-basis states by Hamming weight.  Doing that directly
+# keeps the circuit examples self-contained and removes an otherwise unused
+# runtime dependency on QuSpin.
 
 def build_projectors(N_A):
-    if N_A == 1:
-        return {-.5: np.array([1, 0]), .5: np.array([0, 1])}, np.eye(2)
     projectors = {}
     U_U1 = np.zeros((2**N_A, 2**N_A), dtype=np.complex128)
-    row_index = 0
-    old_basis = None
-    for m in np.linspace(-.5, .5, N_A+1):
-        # Retrieve the list of computational basis states for this magnetization sector.
-        # (Assuming spin_basis_1d(NA, m=m) returns an object with a member .states.)
-        if old_basis is not None:
-            it = 0
-            while old_basis.Ns == spin_basis_1d(N_A, m=m).Ns:
-                m += 1e-7
-                it += 1
-                if it > 1000:
-                    print("Warning: too many iterations")
-                    break
-        
-        basis_obj = spin_basis_1d(N_A, m=m)
-        old_basis = basis_obj
-                
-        states_m = basis_obj.states
-        # print(f"Magnetization m {m:.2f} has", len(states_m), "states: states_m =", states_m)
-        for state in states_m[::-1]:
-            U_U1[state, row_index] = 1
-            row_index += 1
-        # Compute the projector onto the subspace spanned by these states.
-        projectors[m] = compute_projector(N_A, states_m)
+    column = 0
+    for weight in range(N_A + 1):
+        states = np.asarray(
+            [
+                state
+                for state in range(2**N_A)
+                if int(state).bit_count() == weight
+            ],
+            dtype=np.int64,
+        )
+        for state in states:
+            U_U1[state, column] = 1
+            column += 1
+
+        # ``manual_U1_tw`` uses these arrays as elementwise masks.  The
+        # normalized all-ones block is therefore the exact drop-in replacement
+        # for the former QuSpin-based ``compute_projector`` result.
+        mask = np.zeros((2**N_A, 2**N_A), dtype=np.complex128)
+        mask[np.ix_(states, states)] = 1 / len(states)
+        magnetization = weight - N_A / 2
+        projectors[magnetization] = mask
         
     return projectors, U_U1
 
