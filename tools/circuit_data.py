@@ -473,23 +473,51 @@ def generate_su2_nonmarkovian(
     n_system: int = 8,
     n_environment: int = 12,
     coupling_scale: float = np.pi / 5,
-    coefficient_order: str = "figure",
     seed: int = 30_000,
+    sample_times: np.ndarray | None = None,
     progress: Progress = print,
 ) -> dict[str, np.ndarray]:
-    """Run the exact-size SU(2) state-vector protocol behind manuscript Fig. 11.
+    """Run the SU(2)-covariant open-system protocol defined by Eq. (79).
 
-    ``coefficient_order="figure"`` reproduces the theta ordering visible in
-    Fig. 11.  ``"equation"`` follows the coefficient order printed in Eq. (79)
-    and remains available for an explicit convention check.
+    This routine intentionally implements the printed state
+    ``cos(theta/2)|singlets> + sin(theta/2)|0...0>`` in natural-log units.
+    It does not silently exchange the coefficients to imitate Fig. 11: the
+    vector data in that figure are inconsistent with Eq. (79) under the stated
+    covariant dynamics, so figure comparison belongs in the audit notebook.
+
+    ``sample_times`` can reduce measurement cost while still evolving every
+    Floquet layer. Couplings are stored in deterministic brickwork application
+    order (even bonds, then odd bonds), and a single sampled unitary is
+    repeated, as required for the non-Markovian protocol.
     """
     _validate_batched_layer()
+    if n_realizations < 1:
+        raise ValueError("n_realizations must be positive.")
+    if steps < 0:
+        raise ValueError("steps must be nonnegative.")
+    if n_system < 2 or n_environment < 2:
+        raise ValueError("Both partitions must contain at least two qubits.")
     if n_system % 2 or n_environment % 2:
         raise ValueError("The singlet preparation requires even subsystem sizes.")
-    if coefficient_order not in {"equation", "figure"}:
-        raise ValueError("coefficient_order must be 'equation' or 'figure'.")
+    if not np.isfinite(coupling_scale) or coupling_scale < 0:
+        raise ValueError("coupling_scale must be finite and nonnegative.")
     n_total = n_system + n_environment
-    times = np.arange(steps + 1)
+    if sample_times is None:
+        times = np.arange(steps + 1)
+    else:
+        times = np.unique(np.asarray(sample_times, dtype=int))
+        if (
+            times.ndim != 1
+            or len(times) == 0
+            or times[0] != 0
+            or times[-1] > steps
+            or np.any(times < 0)
+        ):
+            raise ValueError(
+                "sample_times must be a nonempty one-dimensional collection "
+                "containing t=0 with values between 0 and steps."
+            )
+    time_to_index = {int(time): index for index, time in enumerate(times)}
     theta_over_pi = np.array([0.30, 0.35, 0.40, 0.45, 0.50])
     environment = nu.singlet_product(n_environment)
     system_singlet = nu.singlet_product(n_system)
@@ -509,7 +537,9 @@ def generate_su2_nonmarkovian(
         rng = np.random.default_rng(seed + realization)
         couplings = rng.uniform(-coupling_scale, coupling_scale, n_total)
         coupling_samples[realization] = couplings
-        gates = [fn.gen_su2(float(coupling)) for coupling in couplings]
+        gates = [
+            fn.gen_su2(float(coupling)) for coupling in couplings
+        ]
 
         # Eq. (79) spans only two vectors.  Evolving those vectors once and
         # forming all five theta superpositions is exact and saves fivefold work.
@@ -519,30 +549,26 @@ def generate_su2_nonmarkovian(
                 np.kron(environment, system_polarized),
             ]
         )
-        for time in times:
-            for theta_index, theta_fraction in enumerate(theta_over_pi):
-                theta = theta_fraction * np.pi
-                if coefficient_order == "equation":
+        for time in range(steps + 1):
+            if time in time_to_index:
+                sample_index = time_to_index[time]
+                for theta_index, theta_fraction in enumerate(theta_over_pi):
+                    theta = theta_fraction * np.pi
                     singlet_amplitude = np.cos(theta / 2)
                     polarized_amplitude = np.sin(theta / 2)
-                else:
-                    # This swapped order matches the initial theta ordering
-                    # visible in the published Fig. 11.
-                    singlet_amplitude = np.sin(theta / 2)
-                    polarized_amplitude = np.cos(theta / 2)
-                state = np.ascontiguousarray(
-                    singlet_amplitude * basis_states[:, 0]
-                    + polarized_amplitude * basis_states[:, 1]
-                )
-                curves[realization, theta_index, time] = (
-                    _su2_asymmetry_from_global_pure(
-                        state,
-                        n_system,
-                        n_environment,
-                        schur_basis,
-                        paths_by_spin,
+                    state = np.ascontiguousarray(
+                        singlet_amplitude * basis_states[:, 0]
+                        + polarized_amplitude * basis_states[:, 1]
                     )
-                )
+                    curves[realization, theta_index, sample_index] = (
+                        _su2_asymmetry_from_global_pure(
+                            state,
+                            n_system,
+                            n_environment,
+                            schur_basis,
+                            paths_by_spin,
+                        )
+                    )
             if time < steps:
                 basis_states = _apply_layer_batch(
                     basis_states, gates, ordering, masks
@@ -562,23 +588,36 @@ def generate_su2_nonmarkovian(
         "theta_over_pi": theta_over_pi,
         "asymmetry": curves,
         "couplings": coupling_samples,
+        "coupling_indexing": np.array(
+            "brickwork application order: even bonds, then odd bonds"
+        ),
         "spin_twice": spins,
         "multiplicity": multiplicities,
         "n_system": np.array(n_system),
         "n_environment": np.array(n_environment),
         "n_realizations": np.array(n_realizations),
         "coupling_scale": np.array(coupling_scale),
-        "coefficient_order": np.array(coefficient_order),
+        "coefficient_order": np.array("equation"),
+        "entropy_log_base": np.array("e"),
+        "state_definition": np.array(
+            "Eq. (79): cos(theta/2)|singlets> + "
+            "sin(theta/2)|0...0>"
+        ),
         "seed": np.array(seed),
         "environment": np.array("product of singlets; no reset"),
-        "protocol": np.array("SU(2) non-Markovian brickwork, Eq. (79)"),
+        "protocol": np.array(
+            "Eq. (79)-consistent SU(2) non-Markovian brickwork validation"
+        ),
         "manuscript_figure": np.array("Fig. 11"),
         "data_level": np.array(
-            "manuscript system and ensemble size"
+            "Eq. (79) validation at manuscript system and ensemble size; "
+            "not asserted to reproduce Fig. 11"
             if n_realizations == 100
-            else "manuscript system size; reduced ensemble (paper R=100)"
+            else "Eq. (79) validation at manuscript system size; "
+            "reduced ensemble; not a Fig. 11 reproduction"
         ),
         "paper_n_realizations": np.array(100),
+        "paper_vector_samples_per_curve": np.array(1_001),
     }
 
 

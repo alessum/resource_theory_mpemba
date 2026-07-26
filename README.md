@@ -51,7 +51,12 @@ loses its resource faster, causing the resource monotones to cross.*
 
 ## Repository contents
 
-The top-level notebooks are designed as readable walkthroughs of the examples in the paper. Each notebook introduces the resource and dynamics, verifies the relevant structural properties, and then analyzes the corresponding Mpemba crossing.
+The top-level notebooks are designed as readable walkthroughs of the examples in
+the paper. Each notebook introduces the resource and dynamics, verifies the
+relevant structural properties, and then tests the corresponding Mpemba
+crossing. The SU(2) notebook additionally checks the published vector curves
+against the covariance bound implied by printed Eq. (79), without treating
+digitized figure coordinates as raw simulation data.
 
 - [`NOTEBOOKS.md`](NOTEBOOKS.md) gives the recommended reading order and maps
   every notebook to the relevant manuscript section and figure.
@@ -96,7 +101,14 @@ The stored data are deliberately explicit about their statistical scope:
 
 - Fig. 9 uses the manuscript system and ensemble size.
 - The non-Markovian U(1) walkthrough combines three   \(N_s=8,N_e=12\) reference-parameter runs with a longer 24-circuit \(N_s=4,N_e=8\) ensemble for local crossing and backflow statistics.
-- The SU(2) walkthrough uses the manuscript Hilbert-space size \(N_s=8,N_e=12\) with three complete realizations and an exact SU(2) twirl.
+- The SU(2) walkthrough uses the manuscript Hilbert-space size \(N_s=8,N_e=12\)
+  with three complete Eq. (79) validation runs and an exact SU(2) twirl. A
+  separately labelled vector-figure reference exposes an unresolved
+  inconsistency between Eq. (79) and Fig. 11; no coefficient swap is presented
+  as a recovered raw-data convention. The notebook also distinguishes the
+  genuinely SU(2)-invariant partial-SWAP gates from the mismatched archived
+  execution path and tests, but rejects, a basis-dependent \(J^2\)-dephasing
+  explanation for the curves.
 
 Reduced local ensembles are never presented as replacements for the 100-realization manuscript averages.
 

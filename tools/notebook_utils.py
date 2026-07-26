@@ -45,7 +45,14 @@ def normalize_density(matrix: np.ndarray, *, clip: float = 1e-13) -> np.ndarray:
     values, vectors = la.eigh(hermitize(matrix))
     values = np.clip(values.real, clip, None)
     values /= values.sum()
-    return (vectors * values) @ dagger(vectors)
+    # Some Accelerate/BLAS builds emit spurious floating-point warnings for
+    # finite complex matrix products.  The explicit check still catches a
+    # genuine numerical failure.
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        normalized = (vectors * values) @ dagger(vectors)
+    if not np.isfinite(normalized).all():
+        raise FloatingPointError("Density normalization produced non-finite values.")
+    return normalized
 
 
 def validate_density(matrix: np.ndarray, *, atol: float = 1e-9) -> None:
@@ -853,7 +860,16 @@ def su2_twirl_exact(
     paths_by_spin: dict[int, list[tuple[int, ...]]],
 ) -> np.ndarray:
     """Exact SU(2) Haar twirl in a coupled-spin basis."""
-    transformed = dagger(basis) @ state @ basis
+    state = np.asarray(state, dtype=complex)
+    basis = np.asarray(basis, dtype=complex)
+    if state.ndim != 2 or state.shape[0] != state.shape[1]:
+        raise ValueError("state must be a square density matrix.")
+    if basis.shape != state.shape:
+        raise ValueError("basis and state must have the same square shape.")
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        transformed = dagger(basis) @ state @ basis
+    if not np.isfinite(transformed).all():
+        raise FloatingPointError("Schur-basis transformation is non-finite.")
     twirled = np.zeros_like(transformed)
     offset = 0
     for spin_twice in sorted(paths_by_spin):
@@ -880,7 +896,13 @@ def su2_twirl_exact(
             offset : offset + block_size, offset : offset + block_size
         ] = output_block.reshape(block_size, block_size)
         offset += block_size
-    return normalize_density(basis @ twirled @ dagger(basis))
+    if offset != state.shape[0]:
+        raise ValueError("Schur block dimensions do not span the state space.")
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        output = basis @ twirled @ dagger(basis)
+    if not np.isfinite(output).all():
+        raise FloatingPointError("Inverse Schur transformation is non-finite.")
+    return normalize_density(output)
 
 
 def run_su2_brickwork_layer(

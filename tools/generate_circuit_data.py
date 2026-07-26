@@ -184,8 +184,13 @@ def main() -> None:
         )
 
     if args.only in ("all", "su2"):
+        # Both scales follow literal Eq. (79) in natural-log units. The larger
+        # run matches the reported ensemble size and the 1,001 samples visible
+        # in the vector figure, but it is still labelled as a validation rather
+        # than a Fig. 11 reproduction because the original raw provenance is
+        # unavailable.
         kwargs = (
-            {"n_realizations": 100, "coefficient_order": "figure"}
+            {"n_realizations": 100, "steps": 1_000}
             if args.paper_scale
             else {}
         )

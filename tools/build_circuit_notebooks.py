@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from textwrap import dedent
-
-import nbformat as nbf
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,17 +15,29 @@ def _source(text: str) -> str:
 
 
 def md(text: str):
-    return nbf.v4.new_markdown_cell(_source(text))
+    return {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": _source(text),
+    }
 
 
 def code(text: str):
-    return nbf.v4.new_code_cell(_source(text))
+    return {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": _source(text),
+    }
 
 
 def write_notebook(filename: str, cells: list) -> None:
-    notebook = nbf.v4.new_notebook(
-        cells=cells,
-        metadata={
+    for index, cell in enumerate(cells):
+        cell.setdefault("id", f"cell-{index:03d}")
+    notebook = {
+        "cells": cells,
+        "metadata": {
             "kernelspec": {
                 "display_name": "Python 3",
                 "language": "python",
@@ -34,15 +45,25 @@ def write_notebook(filename: str, cells: list) -> None:
             },
             "language_info": {"name": "python", "version": "3"},
         },
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+    (ROOT / filename).write_text(
+        json.dumps(notebook, indent=1) + "\n",
+        encoding="utf-8",
     )
-    nbf.write(notebook, ROOT / filename)
 
 
 COMMON_IMPORTS = r"""
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+_TOOLS_DIR = (Path.cwd() / "tools").resolve()
+if str(_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TOOLS_DIR))
 
 import circuit_data as cd
 import notebook_utils as nu
@@ -730,42 +751,60 @@ def build_su2_nonmarkovian() -> None:
         [
             md(
                 r"""
-                # Random circuits III: non-Abelian SU(2) data
+                # Example 5 audit: SU(2)-covariant open-system dynamics
 
                 **Manuscript map.** Sec. III G 2, Fig. 11, Eq. (79).
 
-                This notebook analyzes an actual $N_s=8,N_e=12$ simulation. Every
-                realization evolves two complex state vectors of length $2^{20}$
-                through the original partial-swap brickwork gates, then constructs
-                all five Eq. (79) states by linearity. The relative entropy of
-                asymmetry is evaluated with the exact SU(2) Schur decomposition, not
-                a finite Monte Carlo group average.
+                This is a physics audit of the non-Abelian random-circuit example,
+                not a cosmetic reproduction of the published plot. It checks four
+                logically separate ingredients:
 
-                The stored production dataset contains 100 complete realizations,
-                matching both the manuscript Hilbert-space size and the Fig. 11
-                ensemble size.
+                1. the partial-SWAP gates and singlet environment are SU(2)
+                   invariant;
+                2. the Haar twirl is the exact Schur-Weyl conditional expectation;
+                3. the stored $N_s=8,N_e=12$ trajectories obey the analytic
+                   $t=0$ asymmetry and the global covariance bound;
+                4. the independent vector data in Fig. 11 are compatible with the
+                   printed state and monotone.
+
+                They are not. The earlier notebook incorrectly treated the mismatch
+                as a complementary-angle convention. The figure itself does not
+                expose $t=0$, its displayed time is not documented in Floquet-layer
+                units, and its values cannot be identified with the printed
+                Eq. (79) without extra, unavailable provenance. This notebook keeps
+                the equation-consistent simulation and the digitized figure
+                reference separate.
                 """
             ),
             code(COMMON_IMPORTS),
             md(
                 r"""
-                ## 1. Load the long state-vector run
+                ## 1. Load raw trajectories and their provenance
 
-                `REGENERATE_DATA=True` reruns all 100 exact-size realizations and
-                can take several hours. The equivalent command-line run is
-                `python tools/generate_circuit_data.py --only su2 --paper-scale`.
+                Two different data products are loaded:
+
+                - `su2_nonmarkovian.npz` contains three raw, equation-consistent
+                  trajectories at the manuscript Hilbert-space size. It validates
+                  the implementation but is not a Fig. 11 reproduction.
+                - `su2_fig11_vector_reference.csv` is extracted from the original
+                  vector figure. It is useful for a consistency audit, but it is not
+                  raw simulation output and contains no circuit parameters.
+
+                `REGENERATE_DATA=True` recreates the reduced Eq. (79) validation
+                run. A 100-realization run is expensive and still cannot recover
+                undocumented choices in the published figure.
                 """
             ),
             code(
                 r"""
                 DATA_PATH = Path("data/circuit_examples/su2_nonmarkovian.npz")
+                FIGURE_REFERENCE_PATH = Path(
+                    "data/circuit_examples/su2_fig11_vector_reference.csv"
+                )
                 REGENERATE_DATA = False
 
                 if REGENERATE_DATA:
-                    generated = cd.generate_su2_nonmarkovian(
-                        n_realizations=100,
-                        coefficient_order="figure",
-                    )
+                    generated = cd.generate_su2_nonmarkovian()
                     cd.save_dataset(DATA_PATH, generated)
 
                 if not DATA_PATH.exists():
@@ -773,39 +812,176 @@ def build_su2_nonmarkovian() -> None:
                         f"{DATA_PATH} is missing. Run "
                         "`python tools/generate_circuit_data.py --only su2`."
                     )
+                if not FIGURE_REFERENCE_PATH.exists():
+                    raise FileNotFoundError(FIGURE_REFERENCE_PATH)
                 data = load_npz(DATA_PATH)
+                figure_reference = np.genfromtxt(
+                    FIGURE_REFERENCE_PATH,
+                    delimiter=",",
+                    names=True,
+                    comments="#",
+                    skip_header=5,
+                )
                 asymmetry = data["asymmetry"]
                 times = data["times"]
                 theta_over_pi = data["theta_over_pi"]
                 labels = [fr"$\theta={theta:.2f}\pi$" for theta in theta_over_pi]
+                n_system = int(data["n_system"])
+                n_environment = int(data["n_environment"])
+                n_realizations = int(data["n_realizations"])
+                stored_convention = data.get(
+                    "coefficient_order", np.array("legacy/unspecified")
+                ).item()
 
                 print(data["protocol"].item())
                 print(data["data_level"].item())
                 print(
-                    f"Ns={data['n_system'].item()}, "
-                    f"Ne={data['n_environment'].item()}, "
-                    f"R={data['n_realizations'].item()}, "
+                    f"Ns={n_system}, Ne={n_environment}, "
+                    f"R={n_realizations}, "
                     f"T={times[-1]}"
                 )
                 print("raw asymmetry array:", asymmetry.shape)
+                print("stored convention metadata:", stored_convention)
+                print("environment:", data["environment"].item())
                 print(
-                    "coupling range: [-pi/5, pi/5]; "
-                    "environment: product of singlets"
-                )
-                print(
-                    "coefficient convention:",
-                    data["coefficient_order"].item(),
+                    "published vector samples:",
+                    len(figure_reference),
+                    "(reference only)",
                 )
 
                 assert asymmetry.shape == (
-                    int(data["n_realizations"]), 5, len(times)
+                    n_realizations, len(theta_over_pi), len(times)
                 )
                 assert np.isfinite(asymmetry).all()
+                assert np.array_equal(times, np.arange(times[-1] + 1))
                 """
             ),
             md(
                 r"""
-                ## 2. Exact SU(2) twirl
+                ## 2. Gate symmetry and the open-system structure
+
+                With spin operators $s^\alpha=\sigma^\alpha/2$, setting
+                $J=J_z$ in Eq. (72) gives the isotropic exchange
+
+                $$
+                H_{12}=J\,\mathbf s_1\!\cdot\!\mathbf s_2,\qquad
+                e^{-iH_{12}}
+                =e^{iJ/4}\left[
+                  \cos(J/2)I-i\sin(J/2)\operatorname{SWAP}
+                \right].
+                $$
+
+                The irrelevant global phase leaves the partial-SWAP gate used in
+                the code. Such a gate commutes with $R\otimes R$ for every
+                $R\in{\rm SU}(2)$. Equivalently it commutes with all three
+                collective two-spin generators
+                $s^\alpha\otimes I+I\otimes s^\alpha$.
+
+                The caption's randomness is **quenched Floquet disorder**: for
+                each realization, one coupling
+                $J_b\sim{\rm Uniform}[-\pi/5,\pi/5]$ is drawn for every bond gate
+                in $\hat U$; that same $\hat U$ is repeated at every circuit
+                layer. The gates are not redrawn in time. Modulo a global phase,
+                the singlet/triplet decomposition has only one relative phase, so
+                the partial-SWAP family is the general two-qubit
+                SU(2)-invariant unitary family. The narrow coupling interval is a
+                particular random distribution on that family, not Haar measure
+                over the full relative-phase circle.
+
+                A product of singlets is invariant, so tracing out the environment
+                defines an SU(2)-covariant map from the initial time to every $t$.
+
+                The same finite environment is reused. Consequently the family of
+                reduced maps need not be CP divisible: $M(t+\Delta t)$ may exceed
+                $M(t)$ even though covariance still requires $M(t)\leq M(0)$.
+                """
+            ),
+            code(
+                r"""
+                from scipy.linalg import expm
+
+                coupling = 0.371
+                exchange_hamiltonian = coupling * sum(
+                    np.kron(pauli / 2, pauli / 2)
+                    for pauli in (nu.X, nu.Y, nu.Z)
+                )
+                exchange_gate = expm(-1j * exchange_hamiltonian)
+                partial_swap = nu.su2_gate(coupling)
+                assert np.allclose(
+                    exchange_gate,
+                    np.exp(1j * coupling / 4) * partial_swap,
+                    atol=1e-12,
+                )
+
+                axis = np.array([0.2, -0.3, 0.7])
+                axis /= np.linalg.norm(axis)
+                rotation = expm(
+                    -0.5j
+                    * 0.83
+                    * sum(component * pauli for component, pauli in zip(
+                        axis, (nu.X, nu.Y, nu.Z)
+                    ))
+                )
+                collective_two = np.kron(rotation, rotation)
+                gate_commutator = (
+                    partial_swap @ collective_two
+                    - collective_two @ partial_swap
+                )
+                collective_generators = [
+                    np.kron(pauli / 2, nu.I2)
+                    + np.kron(nu.I2, pauli / 2)
+                    for pauli in (nu.X, nu.Y, nu.Z)
+                ]
+                generator_commutators = [
+                    np.linalg.norm(
+                        partial_swap @ generator
+                        - generator @ partial_swap
+                    )
+                    for generator in collective_generators
+                ]
+                singlet = nu.singlet_product(2)
+
+                print("||[u, R x R]|| =", np.linalg.norm(gate_commutator))
+                print(
+                    "||[u, Sx]||, ||[u, Sy]||, ||[u, Sz]|| =",
+                    generator_commutators,
+                )
+                print(
+                    "singlet invariance error =",
+                    np.linalg.norm(collective_two @ singlet - singlet),
+                )
+                assert np.linalg.norm(gate_commutator) < 1e-12
+                assert max(generator_commutators) < 1e-12
+                assert np.linalg.norm(collective_two @ singlet - singlet) < 1e-12
+                """
+            ),
+            md(
+                r"""
+                ### Archived execution path
+
+                The public `alessum/mpemba_circuits` history verifies the
+                partial-SWAP constructor, but it is not a runnable provenance
+                record for Fig. 11:
+
+                - the committed runner selects `U1`, not `SU2`;
+                - its dormant SU(2) branch samples $J\in[-\pi,\pi]$, not the
+                  caption's $[-\pi/5,\pi/5]$;
+                - `Circuit.run` does not construct an SU(2)-twirled eight-qubit
+                  reduced state; an earlier revision called the four-qubit twirl;
+                - it prepares a homogeneous spin-coherent system and a polarized
+                  $|0\rangle^{\otimes12}$ environment, not Eq. (79) and a singlet
+                  environment;
+                - that history contains no SU(2) coupling table or raw SU(2)
+                  trajectories.
+
+                Thus the answer is **yes at the two-qubit gate level**, but the
+                published curves cannot be regenerated by merely changing the
+                archived symmetry flag.
+                """
+            ),
+            md(
+                r"""
+                ## 3. Exact non-Abelian twirl
 
                 The printed Eq. (79) writes the initial state and environment as
 
@@ -816,25 +992,26 @@ def build_su2_nonmarkovian() -> None:
                 |\pi_e\rangle=|\xi\rangle^{\otimes N_e/2},
                 $$
 
-                where $|\xi\rangle=(|01\rangle-|10\rangle)/\sqrt2$. The Hilbert
-                space decomposes as
+                where $|\xi\rangle=(|01\rangle-|10\rangle)/\sqrt2$. Schur-Weyl
+                decomposition gives
                 $\mathcal H_s=\bigoplus_j\mathcal M_j\otimes\mathcal V_j$.
-                SU(2) twirling preserves the multiplicity state and replaces each
-                spin-$j$ irrep by $I_{2j+1}/(2j+1)$. The data generator therefore
-                evaluates
+                Haar twirling erases coherences between inequivalent $j$ sectors,
+                preserves the multiplicity state, and replaces each spin-$j$
+                representation by $I_{2j+1}/(2j+1)$:
+
+                $$
+                \mathcal G_{\rm SU(2)}(\rho)
+                =\bigoplus_j
+                \operatorname{Tr}_{\mathcal V_j}(\Pi_j\rho\Pi_j)
+                \otimes\frac{I_{\mathcal V_j}}{2j+1}.
+                $$
+
+                The resource monotone is evaluated in natural-log units,
 
                 $$
                 M_{\rm SU(2)}(\rho_s)
                 =S(\mathcal G_{\rm SU(2)}[\rho_s])-S(\rho_s)
-                $$
-
-                exactly in the coupled-spin basis.
-
-                The stored production run records `coefficient_order="figure"`:
-                it exchanges the two coefficients to reproduce the theta ordering
-                visible in Fig. 11. Setting the metadata value to `"equation"`
-                instead follows Eq. (79) literally. Keeping this convention
-                explicit prevents a silent relabeling of the initial states.
+                =S(\rho_s\Vert\mathcal G_{\rm SU(2)}[\rho_s]).
                 """
             ),
             code(
@@ -849,55 +1026,321 @@ def build_su2_nonmarkovian() -> None:
                     )
                 )
 
-                # At t=0 the system is pure and occupies j=0 plus
-                # |j=Ns/2,m=j>. This gives an analytic entropy check.
-                if data["coefficient_order"].item() == "equation":
-                    p_polarized = (
-                        np.sin(theta_over_pi * np.pi / 2) ** 2
-                    )
-                else:
-                    p_polarized = (
-                        np.cos(theta_over_pi * np.pi / 2) ** 2
-                    )
-                binary_entropy = -(
-                    p_polarized * np.log(p_polarized)
-                    + (1 - p_polarized) * np.log(1 - p_polarized)
+                # Independent structural checks on a generic four-qubit state.
+                rng = np.random.default_rng(7)
+                test_ket = rng.normal(size=16) + 1j * rng.normal(size=16)
+                test_ket /= np.linalg.norm(test_ket)
+                test_rho = np.outer(test_ket, test_ket.conj())
+                test_basis, test_paths = nu.su2_schur_basis(4)
+                test_twirl = nu.su2_twirl_exact(
+                    test_rho, test_basis, test_paths
                 )
-                analytic_initial = (
-                    binary_entropy
-                    + p_polarized * np.log(int(data["n_system"]) + 1)
+                test_twirl_twice = nu.su2_twirl_exact(
+                    test_twirl, test_basis, test_paths
                 )
-                measured_initial = asymmetry[:, :, 0].mean(axis=0)
 
-                print("analytic M(0):", analytic_initial)
-                print("stored   M(0):", measured_initial)
-                assert np.allclose(
-                    measured_initial, analytic_initial, atol=1e-11
+                collective_four = nu.kron_all([rotation] * 4)
+                with np.errstate(
+                    over="ignore", invalid="ignore", divide="ignore"
+                ):
+                    rotated_twirl = (
+                        collective_four
+                        @ test_twirl
+                        @ collective_four.conj().T
+                    )
+                assert np.isfinite(rotated_twirl).all()
+                invariance_error = np.linalg.norm(rotated_twirl - test_twirl)
+                idempotence_error = np.linalg.norm(
+                    test_twirl_twice - test_twirl
+                )
+                print("twirl trace:", np.trace(test_twirl).real)
+                print("twirl minimum eigenvalue:", np.linalg.eigvalsh(test_twirl).min())
+                print("twirl idempotence error:", idempotence_error)
+                print("twirl invariance error:", invariance_error)
+
+                assert np.allclose(np.trace(test_twirl), 1, atol=1e-12)
+                assert np.linalg.eigvalsh(test_twirl).min() > -1e-12
+                assert idempotence_error < 1e-11
+                assert invariance_error < 1e-11
+                """
+            ),
+            md(
+                r"""
+                ## 4. A no-go test for the published figure
+
+                At $t=0$ the system is pure and has support only in a singlet
+                ($j=0$) and in $|j=N_s/2,m=j\rangle$. If $p$ is the polarized
+                weight, the twirled state has entropy
+
+                $$
+                M(0)=h_2(p)+p\ln(N_s+1).
+                $$
+
+                Literal Eq. (79) has
+                $p_{\rm Eq.79}=\sin^2(\theta/2)$. Because the environment is
+                invariant and the joint unitary is SU(2)-invariant, covariance
+                gives the global-in-time bound
+
+                $$
+                M[\rho_\theta(t)]\leq M[\rho_\theta(0)].
+                $$
+
+                The vector reference is tested against this bound in both nats and
+                bits. We also show the exchanged-coefficient hypothesis, but do not
+                relabel it as Eq. (79). Passing a necessary bound does not establish
+                data provenance.
+                """
+            ),
+            code(
+                r"""
+                def binary_entropy(probability):
+                    probability = np.asarray(probability, dtype=float)
+                    return -(
+                        probability * np.log(probability)
+                        + (1 - probability) * np.log(1 - probability)
+                    )
+
+
+                def analytic_initial_asymmetry(polarized_weight):
+                    return (
+                        binary_entropy(polarized_weight)
+                        + polarized_weight * np.log(n_system + 1)
+                    )
+
+
+                angles = np.pi * theta_over_pi
+                p_equation = np.sin(angles / 2) ** 2
+                p_swapped = np.cos(angles / 2) ** 2
+                initial_equation = analytic_initial_asymmetry(p_equation)
+                initial_swapped = analytic_initial_asymmetry(p_swapped)
+                measured_initial = asymmetry[:, :, 0]
+
+                equation_error = np.max(
+                    np.abs(measured_initial - initial_equation)
+                )
+                assert equation_error < 1e-11
+
+                reference_columns = [
+                    f"theta_0{int(round(theta * 100)):02d}_pi"
+                    for theta in theta_over_pi
+                ]
+                reference_curves = np.column_stack(
+                    [figure_reference[name] for name in reference_columns]
+                )
+                reference_maximum = reference_curves.max(axis=0)
+
+                print("literal Eq. (79) M(0):", initial_equation)
+                print("stored M(0):          ", measured_initial.mean(axis=0))
+                print("published-vector maxima:", reference_maximum)
+                print(
+                    "Eq. (79) violations in nats:",
+                    reference_maximum > initial_equation + 1e-3,
+                )
+                print(
+                    "Eq. (79) violations even if read as bits:",
+                    reference_maximum
+                    > initial_equation / np.log(2) + 1e-3,
+                )
+                assert np.all(
+                    reference_maximum > initial_equation + 1e-3
+                )
+                assert np.any(
+                    reference_maximum
+                    > initial_equation / np.log(2) + 1e-3
+                )
+
+                fig, axes = plt.subplots(1, 2, figsize=(12, 4.1))
+                axes[0].plot(
+                    figure_reference["displayed_time"],
+                    reference_curves,
+                )
+                for state_index, (label, color) in enumerate(
+                    zip(labels, PALETTE_5)
+                ):
+                    axes[0].lines[state_index].set(
+                        color=color, label=label, lw=1.8
+                    )
+                axes[0].set(
+                    xscale="log",
+                    xlabel="displayed time in Fig. 11",
+                    ylabel="published vertical coordinate",
+                    title="Vectorized Fig. 11 reference",
+                )
+                axes[0].legend(fontsize=8)
+
+                axes[1].plot(
+                    theta_over_pi,
+                    reference_maximum,
+                    "ko-",
+                    label="maximum visible in Fig. 11",
+                )
+                axes[1].plot(
+                    theta_over_pi,
+                    initial_equation,
+                    "o-",
+                    color=BLUE,
+                    label="Eq. (79) bound, nats",
+                )
+                axes[1].plot(
+                    theta_over_pi,
+                    initial_equation / np.log(2),
+                    "s--",
+                    color=ORANGE,
+                    label="Eq. (79) bound, bits",
+                )
+                axes[1].plot(
+                    theta_over_pi,
+                    initial_swapped / np.log(2),
+                    "^:",
+                    color=GOLD,
+                    label="swapped coefficients, bits",
+                )
+                axes[1].set(
+                    xlabel=r"reported $\theta/\pi$",
+                    ylabel="asymmetry",
+                    title="Necessary covariance-bound check",
+                )
+                axes[1].legend(fontsize=8)
+                fig.tight_layout()
+                plt.show()
+                """
+            ),
+            md(
+                r"""
+                ### A plausible observable bug, tested rather than adopted
+
+                Complete dephasing in the eigenvectors returned by a numerical
+                diagonalization of $J^2$ is **not** the SU(2) Haar twirl. The
+                eigenvalue of $J^2$ is highly degenerate, so an eigensolver may
+                choose an arbitrary basis inside each multiplicity space.
+                Destroying coherence in that arbitrary basis produces a
+                platform-dependent number.
+
+                This error is worth testing because, for literal Eq. (79), it
+                yields values near the high left edge of Fig. 11 and reverses the
+                $\theta$ ordering. The following cell applies complete dephasing
+                in two equally valid $J^2$ eigenbases. Their disagreement proves
+                that this quantity cannot be the symmetry twirl.
+                """
+            ),
+            code(
+                r"""
+                def pure_state_diagonal_entropy(state, basis):
+                    with np.errstate(
+                        over="ignore", invalid="ignore", divide="ignore"
+                    ):
+                        probabilities = np.abs(basis.conj().T @ state) ** 2
+                    probabilities = probabilities[probabilities > 1e-14]
+                    return -np.sum(probabilities * np.log(probabilities))
+
+
+                coupled_basis, _ = nu.su2_schur_basis(n_system)
+                collective_spin = nu.collective_spin(n_system)
+                with np.errstate(
+                    over="ignore", invalid="ignore", divide="ignore"
+                ):
+                    j_squared = sum(
+                        component @ component
+                        for component in collective_spin
+                    )
+                _, numerical_j2_basis = np.linalg.eigh(j_squared)
+
+                diagonal_entropy_coupled = []
+                diagonal_entropy_numerical = []
+                for angle in angles:
+                    state = nu.su2_tilted_state(n_system, angle)
+                    diagonal_entropy_coupled.append(
+                        pure_state_diagonal_entropy(state, coupled_basis)
+                    )
+                    diagonal_entropy_numerical.append(
+                        pure_state_diagonal_entropy(
+                            state, numerical_j2_basis
+                        )
+                    )
+                diagonal_entropy_coupled = np.array(
+                    diagonal_entropy_coupled
+                )
+                diagonal_entropy_numerical = np.array(
+                    diagonal_entropy_numerical
+                )
+
+                print(
+                    "complete dephasing, coupled-spin basis:",
+                    diagonal_entropy_coupled,
+                )
+                print(
+                    "complete dephasing, numerical J^2 basis:",
+                    diagonal_entropy_numerical,
+                )
+                print(
+                    "first visible Fig. 11 coordinates:",
+                    reference_curves[0],
+                )
+                assert not np.allclose(
+                    diagonal_entropy_coupled,
+                    diagonal_entropy_numerical,
+                    atol=1e-6,
                 )
                 """
             ),
             md(
                 r"""
-                ## 3. Raw trajectories and the full ensemble
+                `tools/analyze_su2_curve_hypotheses.py` evolves this bug
+                hypothesis with the printed gates. It improves the sparse
+                figure-comparison RMSE relative to the archived polarized-bath
+                runner, but it does not reproduce the time dependence: the five
+                candidate trajectories remain much farther apart than the
+                published curves. It is therefore a diagnostic clue, not a
+                replacement protocol.
+                """
+            ),
+            md(
+                r"""
+                The SU(2) random-circuit literature does not repair this by itself.
+                Liu *et al.* use a different staggered tilted ferromagnet,
 
-                The left panel exposes ten individual realizations per angle. The
-                right panel computes the mean and 16th-84th percentile interval
-                from all 100 circuits. No pre-averaged or illustrative curve is
-                loaded.
+                $$
+                |\psi_0(\theta)\rangle=
+                e^{-i\frac{\theta}{2}\sum_j(-1)^j\sigma_j^y}
+                |0\cdots0\rangle,
+                $$
+
+                in a closed symmetric circuit. Replacing Eq. (79) by that state
+                would be a different model, not a convention fix. The archived
+                helper code also mixes natural-log relative entropy with a
+                base-two entropy helper, so entropy units must be explicit in any
+                future raw-data recovery.
+                """
+            ),
+            md(
+                r"""
+                ## 5. Raw trajectories before ensemble reduction
+
+                The left panel exposes every stored realization when the ensemble
+                is small (otherwise the first ten). The right panel shows the mean.
+                For fewer than 20 circuits the band is the full observed range;
+                only larger ensembles use a 16th-84th percentile band.
                 """
             ),
             code(
                 r"""
                 mean_curves = asymmetry.mean(axis=0)
-                lower_curves, upper_curves = np.quantile(
-                    asymmetry, [0.16, 0.84], axis=0
-                )
+                if n_realizations < 20:
+                    lower_curves = asymmetry.min(axis=0)
+                    upper_curves = asymmetry.max(axis=0)
+                    band_label = "full observed range"
+                else:
+                    lower_curves, upper_curves = np.quantile(
+                        asymmetry, [0.16, 0.84], axis=0
+                    )
+                    band_label = "16th-84th percentile"
+                n_show = min(10, n_realizations)
 
                 fig, axes = plt.subplots(1, 2, figsize=(12, 4.3), sharey=True)
                 for state_index, (label, color) in enumerate(
                     zip(labels, PALETTE_5)
                 ):
-                    for realization in range(10):
+                    for realization in range(n_show):
                         axes[0].plot(
                             times[1:],
                             asymmetry[realization, state_index, 1:],
@@ -925,9 +1368,11 @@ def build_su2_nonmarkovian() -> None:
                     ax.set_xlabel("Floquet layer")
                 axes[0].set(
                     ylabel=r"$M_{\rm SU(2)}[\rho_s(t)]$",
-                    title="ten raw exact-size realizations",
+                    title=f"{n_show} raw exact-size realizations",
                 )
-                axes[1].set(title="100-circuit mean and 16-84% interval")
+                axes[1].set(
+                    title=f"{n_realizations}-circuit mean; {band_label}"
+                )
                 axes[1].legend(fontsize=8)
                 fig.tight_layout()
                 plt.show()
@@ -935,47 +1380,72 @@ def build_su2_nonmarkovian() -> None:
             ),
             md(
                 r"""
-                ## 4. Crossings and non-Markovian backflow
+                ## 6. Crossings, global monotonicity, and memory revivals
 
-                We test all pairwise mean-curve crossings and quantify
-                non-Markovian revivals. A missing crossing is reported as such; it is
-                not replaced by an illustrative curve. Both quantities below are
-                evaluated from the complete 100-realization dataset.
+                A Mpemba crossing is directional: the initially more asymmetric
+                mean curve must later fall below the initially less asymmetric one.
+                We test that direction for every pair.
+
+                Reusing the environment can produce positive one-step increments.
+                We call these *resource revivals*. They are compatible with memory
+                effects and failure of CP divisibility, but a positive increment of
+                one monotone alone is not a complete BLP distinguishability
+                backflow calculation.
                 """
             ),
             code(
                 r"""
                 finite_crossings = []
-                for high in range(1, len(theta_over_pi)):
-                    for low in range(high):
+                for first in range(len(theta_over_pi)):
+                    for second in range(first):
+                        if mean_curves[first, 0] >= mean_curves[second, 0]:
+                            initially_more, initially_less = first, second
+                        else:
+                            initially_more, initially_less = second, first
                         tau = nu.crossing_time(
-                            times, mean_curves[high], mean_curves[low]
+                            times,
+                            mean_curves[initially_more],
+                            mean_curves[initially_less],
                         )
                         if np.isfinite(tau):
                             finite_crossings.append(
-                                (theta_over_pi[high], theta_over_pi[low], tau)
+                                (
+                                    theta_over_pi[initially_more],
+                                    theta_over_pi[initially_less],
+                                    tau,
+                                )
                             )
 
                 if finite_crossings:
-                    for high, low, tau in finite_crossings:
+                    for more, less, tau in finite_crossings:
                         print(
-                            f"theta={high:.2f}pi crosses "
-                            f"theta={low:.2f}pi at t={tau:.2f}"
+                            f"initially more asymmetric theta={more:.2f}pi "
+                            f"crosses theta={less:.2f}pi at t={tau:.2f}"
                         )
                 else:
                     print(
-                        "No pairwise crossing in the 100-realization mean."
+                        "No directional Mpemba crossing in this stored mean."
                     )
 
                 increments = np.diff(asymmetry, axis=-1)
+                overshoot_above_initial = np.max(
+                    asymmetry - asymmetry[:, :, [0]]
+                )
                 print(
-                    "largest raw one-step revival:", increments.max()
+                    "largest raw one-step resource revival:",
+                    increments.max(),
                 )
                 print(
                     "fraction of raw steps with positive increment:",
                     (increments > 1e-10).mean(),
                 )
+                print(
+                    "largest violation of M(t) <= M(0):",
+                    overshoot_above_initial,
+                )
+
                 assert increments.max() > 0
+                assert overshoot_above_initial < 1e-10
                 """
             ),
             code(
@@ -996,7 +1466,7 @@ def build_su2_nonmarkovian() -> None:
                     xscale="log",
                     xlabel="Floquet layer",
                     ylabel=r"$\Delta M_{\rm SU(2)}$",
-                    title="mean increments: positive values are backflow",
+                    title="mean one-step resource increments",
                 )
                 ax.legend(ncol=3, fontsize=8)
                 plt.show()
@@ -1004,13 +1474,40 @@ def build_su2_nonmarkovian() -> None:
             ),
             md(
                 r"""
-                ## Takeaway
+                ## 7. What is established
 
-                The notebook executes the exact symmetry construction and
-                visualizes the complete 100-circuit, $2^{20}$-dimensional
-                production ensemble. The mean crossings, uncertainty band, and
-                finite-environment revivals are all calculated from those raw
-                trajectories.
+                - The local gates, environment preparation, and exact Schur twirl
+                  implement an SU(2)-covariant open-system dynamics.
+                  Each realization uses random SU(2)-invariant two-qubit
+                  partial-SWAP gates with fixed-in-time bond couplings; this is a
+                  quenched random Floquet circuit.
+                - The bundled raw data obey the analytic initial asymmetry and the
+                  covariance bound $M(t)\le M(0)$, while displaying intermediate
+                  resource revivals from environment reuse.
+                - The three-realization NPZ is an implementation check, not a
+                  statistically converged figure reproduction.
+                - The public runner contains the correct SU(2) gate constructor,
+                  but its committed execution path, initial state, environment,
+                  coupling law, and missing raw SU(2) data do not establish Fig. 11
+                  provenance.
+                - The published vector curves fail the covariance bound for literal
+                  Eq. (79), even if their vertical values are read as bits rather
+                  than nats. Exchanged coefficients in bit units pass this necessary
+                  test, but the missing raw parameters prevent a provenance claim.
+                - Complete dephasing in a numerical $J^2$ eigenbasis partly
+                  explains the anomalous left-edge scale, but it is basis dependent
+                  and fails to reproduce the curve separation in time.
+                - The staggered state of Liu *et al.* is physically relevant
+                  literature context but defines a different initial-state family.
+
+                **Primary references:** [published manuscript and Fig.
+                11](https://doi.org/10.1103/rbt4-psfd);
+                [Marvian and Spekkens, modes of
+                asymmetry](https://doi.org/10.1103/PhysRevA.90.062110);
+                [Breuer *et al.*, non-Markovian open
+                dynamics](https://doi.org/10.1103/RevModPhys.88.021002);
+                [Liu *et al.*, SU(2)-symmetric random
+                circuits](https://doi.org/10.1103/PhysRevLett.133.140405).
                 """
             ),
         ],

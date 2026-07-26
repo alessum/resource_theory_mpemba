@@ -44,12 +44,17 @@ def write_notebook(filename: str, cells: list) -> None:
 
 
 COMMON_IMPORTS = r"""
+import sys
 from pathlib import Path
 import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.linalg as la
+
+_TOOLS_DIR = (Path.cwd() / "tools").resolve()
+if str(_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TOOLS_DIR))
 
 import notebook_utils as nu
 
@@ -1990,9 +1995,11 @@ write_notebook(
         ),
         md(
             r"""
-            ## 4. Paper-scale checklist
+            ## 4. Paper-scale audit checklist
 
-            To reproduce Fig. 11 numerically rather than just its mechanism:
+            These settings reproduce the printed Eq. (79) model, but they must
+            not be advertised as a reproduction of Fig. 11 without the missing
+            raw-data provenance:
 
             - set `N_SYSTEM=8`, `N_ENVIRONMENT=12`;
             - use 100 realizations;
@@ -2003,8 +2010,11 @@ write_notebook(
             - average the relative entropy of asymmetry only after computing it for
               each realization.
 
-            The state-vector and Schur-basis functions used here are unchanged at
-            paper scale, but that run requires substantial memory and compute time.
+            The published vector curves fail the covariance bound implied by
+            literal Eq. (79), while the archived helper code also contains mixed
+            entropy-log conventions. The maintained `asymm_ex5.ipynb` performs
+            that consistency audit and keeps vectorized figure data separate from
+            raw simulation trajectories.
             """
         ),
         md(
