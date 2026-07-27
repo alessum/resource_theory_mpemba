@@ -129,6 +129,7 @@ def main() -> None:
             "u1-nonmarkovian",
             "u1-reference",
             "su2",
+            "su2-fig11",
         ),
         default="all",
     )
@@ -197,6 +198,15 @@ def main() -> None:
         _save(
             "su2_nonmarkovian.npz",
             cd.generate_su2_nonmarkovian(progress=_progress, **kwargs),
+        )
+
+    if args.only == "su2-fig11":
+        _save(
+            "su2_fig11_full_su2.npz",
+            cd.generate_su2_fig11(
+                n_realizations=100 if args.paper_scale else 20,
+                progress=_progress,
+            ),
         )
 
 

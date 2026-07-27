@@ -17,7 +17,7 @@ an illustrative curve.
 | 6 | [`asymm_ex3.ipynb`](asymm_ex3.ipynb) | Sec. III F, Fig. 7 | Time-translation asymmetry under Davies dynamics |
 | 7 | [`asymm_ex4.ipynb`](asymm_ex4.ipynb) | Sec. III G 1, Fig. 9 | Data-backed Markovian U(1) ensemble and charge-resolved spectrum |
 | 8 | [`asymm_ex4.1.a.ipynb`](asymm_ex4.1.a.ipynb) | Sec. III G 1, Fig. 10 | Exact-size reference-repository trajectories, local ensemble crossings, and information backflow |
-| 9 | [`asymm_ex5.ipynb`](asymm_ex5.ipynb) | Sec. III G 2, Fig. 11 | SU(2) covariance/twirl checks and a no-go audit of Eq. (79) against the published vector curves |
+| 9 | [`asymm_ex5.ipynb`](asymm_ex5.ipynb) | Sec. III G 2, Fig. 11 | Full-SU(2), 100-realization recomputation of the five curves and all ten crossings |
 | 10 | [`asymm_ex6.ipynb`](asymm_ex6.ipynb) | Sec. IV, Figs. 12–13 | Decomposition into symmetry-breaking and symmetry-respecting resources |
 
 ## Running the notebooks
@@ -33,13 +33,13 @@ full Fig. 9 system and ensemble size. The non-Markovian U(1) walkthrough combine
 three \(N_s=8,N_e=12\) runs using pinned gate parameters from
 [`alessum/mpemba_circuits`](https://github.com/alessum/mpemba_circuits) with an
 explicitly labelled \(N_s=4,N_e=8\) local ensemble. The SU(2) file uses the
-manuscript Hilbert-space size \(N_s=8,N_e=12\) with three complete realizations.
-Neither reduced ensemble is presented as a replacement for the corresponding
-100-realization manuscript average. The stored SU(2) NPZ follows Eq. (79)
-literally and is an implementation check, not a Fig. 11 reproduction. A
-separate CSV extracted from the original vector figure lets the notebook show
-that the visible curves are incompatible with Eq. (79) under the stated
-covariant dynamics; it is explicitly not labelled as raw simulation data.
+manuscript Hilbert-space size \(N_s=8,N_e=12\) and all 100 realizations. Its
+isotropic partial-SWAP gates commute with all three collective-spin
+generators, its singlet bath is SU(2)-invariant, and its asymmetry is evaluated
+with the exact Clebsch--Gordan Haar twirl. The notebook documents the
+figure-matching angle and time-axis conventions and compares the resulting raw
+ensemble mean with a separately labelled vector-figure reference. The
+reference is never used as simulation input.
 
 ## Maintenance
 

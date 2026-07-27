@@ -31,14 +31,30 @@ bands are computed in the notebooks, not stored as preprocessed curves.
   size, not a substitute for the 100-circuit production average.
 - `su2_nonmarkovian.npz`: Eq. (79)-consistent protocol at the manuscript
   Hilbert-space size (`Ns=8`, `Ne=12`, 100 layers) for three circuits. Each value uses the
-  exact SU(2) Schur-basis twirl. The manuscript ensemble contains 100 circuits.
+  exact SU(2) Schur-basis twirl. New runs build that basis with
+  `tools/build_cg_basis.py`, following the manual block recursion and column
+  ordering of the original notebooks. The manuscript ensemble contains 100 circuits.
   This legacy file follows Eq. (79) in natural-log units and is now described
   as a reduced validation run, not as a reproduction of the published curve.
+- `su2_fig11_full_su2.npz`: the Fig. 11 reproduction at the manuscript
+  Hilbert-space and ensemble size (`Ns=8`, `Ne=12`, 100 circuits, 501
+  Floquet layers). It stores raw per-realization trajectories and all
+  isotropic couplings. Evolution is an exact fixed-magnetization-sector
+  decomposition of the full partial-SWAP circuit, while every reported
+  asymmetry uses the complete SU(2) Schur-basis Haar twirl. Regenerate it with:
+
+  ```bash
+  python tools/generate_circuit_data.py --only su2-fig11 --paper-scale
+  ```
+
+  The file records the figure-matching shifted-angle convention and the
+  displayed-time calibration explicitly. Neither convention is taken from
+  the companion repository's U(1) runner.
 - `su2_fig11_vector_reference.csv`: 1,001 coordinates per curve extracted from
   the archived Illustrator vector figure. It is a figure-level consistency
   reference, not raw circuit output. Its metadata record the source hash and
-  the displayed time grid; the conversion from that grid to Floquet layers is
-  not documented in the manuscript.
+  the displayed time grid. `asymm_ex5.ipynb` uses it only to report residuals
+  of the independently generated full-SU(2) ensemble.
 
 The public [`alessum/mpemba_circuits`](https://github.com/alessum/mpemba_circuits)
 history confirms that `gen_su2` constructs SU(2)-invariant partial-SWAP gates.
@@ -46,6 +62,16 @@ It does not contain a reproducible Fig. 11 run: the committed runner selects
 U(1), its dormant SU(2) path and coupling law do not match the caption, its
 initial state and environment do not match Eq. (79), and no SU(2) parameter
 table or raw SU(2) result is stored there.
+
+Verify the manuscript-era CG basis without writing the basis matrix:
+
+```bash
+python tools/build_cg_basis.py --sizes 8 --no-save
+```
+
+The builder requires NumPy and SymPy. Only the eight-system-qubit basis is
+needed for Fig. 11; the twelve environment qubits remain in a known singlet
+product and are not twirled numerically.
 
 To rebuild the Fig. 11 vector reference from the archived single-panel PDF:
 

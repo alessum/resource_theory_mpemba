@@ -1871,9 +1871,9 @@ write_notebook(
              \otimes\operatorname{Tr}_{\mathcal V_j}(\Pi_j\rho\Pi_j).
             $$
 
-            `notebook_utils.su2_schur_basis` constructs the coupled-spin basis
-            recursively from Clebsch-Gordan coefficients, so no Monte Carlo group
-            average is needed.
+            `notebook_utils.su2_schur_basis` uses the manual block recursion
+            and column ordering of the original notebooks via
+            `tools/build_cg_basis.py`, so no Monte Carlo group average is needed.
             """
         ),
         code(
@@ -1885,7 +1885,9 @@ write_notebook(
             STEPS = 30
             THETAS = np.array([0.30, 0.40, 0.45, 0.50, 0.55]) * np.pi
 
-            schur_basis, paths_by_spin = nu.su2_schur_basis(N_SYSTEM)
+            schur_basis, paths_by_spin = nu.su2_schur_basis(
+                N_SYSTEM, convention="manuscript"
+            )
             print("Multiplicity by doubled spin 2j:")
             print({spin: len(paths) for spin, paths in paths_by_spin.items()})
             assert np.allclose(

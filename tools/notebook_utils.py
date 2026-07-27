@@ -758,6 +758,89 @@ def collective_spin(n_qubits: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     )
 
 
+def su2_operator_irrep_bases(
+    n_qubits: int, *, atol: float = 1e-9
+) -> dict[int, np.ndarray]:
+    """Orthonormal bases for the SU(2) conjugation modes of operator space.
+
+    The translation modes ``P^(omega)`` of Marvian and Spekkens,
+    Phys. Rev. A 94, 052324 (2016), generalize for non-Abelian SU(2) to
+    irreducible tensor-operator ranks ``K``.  Their projectors are the spectral
+    projectors of the conjugation Casimir
+
+        C(A) = sum_a [J_a, [J_a, A]],
+
+    whose eigenvalue in rank ``K`` is ``K(K+1)``.  Each returned matrix has
+    column-vectorized, Hilbert--Schmidt-orthonormal operators as its columns.
+    This dense construction is intended for the small exact demonstrations.
+    """
+    if n_qubits < 1:
+        raise ValueError("n_qubits must be positive")
+    dimension = 2**n_qubits
+    identity = np.eye(dimension, dtype=complex)
+    commutator_generators = [
+        np.kron(identity, generator)
+        - np.kron(generator.T, identity)
+        for generator in collective_spin(n_qubits)
+    ]
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        casimir = sum(
+            generator @ generator
+            for generator in commutator_generators
+        )
+    eigenvalues, eigenvectors = la.eigh(hermitize(casimir))
+
+    bases = {}
+    assigned = np.zeros(len(eigenvalues), dtype=bool)
+    for rank in range(n_qubits + 1):
+        mask = np.isclose(
+            eigenvalues,
+            rank * (rank + 1),
+            atol=atol,
+            rtol=0,
+        )
+        if np.any(mask):
+            bases[rank] = eigenvectors[:, mask]
+            assigned |= mask
+    if not np.all(assigned):
+        unassigned = eigenvalues[~assigned]
+        raise RuntimeError(
+            "SU(2) conjugation Casimir contains unrecognized eigenvalues: "
+            f"{unassigned[:8]}"
+        )
+    if sum(basis.shape[1] for basis in bases.values()) != dimension**2:
+        raise RuntimeError("SU(2) operator modes do not span operator space.")
+    return bases
+
+
+def su2_operator_mode(
+    operator: np.ndarray, mode_basis: np.ndarray
+) -> np.ndarray:
+    """Project an operator onto one SU(2) irreducible tensor-rank sector."""
+    operator = np.asarray(operator, dtype=complex)
+    dimension = operator.shape[0]
+    if operator.shape != (dimension, dimension):
+        raise ValueError("operator must be square")
+    if mode_basis.shape[0] != dimension**2:
+        raise ValueError("mode basis and operator dimensions do not match")
+    vector = vec(operator)
+    return unvec(
+        mode_basis @ (dagger(mode_basis) @ vector),
+        dimension,
+    )
+
+
+def su2_mode_trace_norms(
+    operator: np.ndarray,
+    mode_bases: dict[int, np.ndarray],
+) -> dict[int, float]:
+    """Trace norm of every SU(2) irreducible operator component."""
+    return {
+        rank: float(np.sum(la.svdvals(su2_operator_mode(operator, basis))))
+        for rank, basis in mode_bases.items()
+    }
+
+
 def commutant_twirl_projector(generators: list[np.ndarray]) -> np.ndarray:
     """Hilbert-Schmidt projector onto operators commuting with generators."""
     dimension = generators[0].shape[0]
@@ -775,10 +858,10 @@ def apply_twirl_projector(projector: np.ndarray, state: np.ndarray) -> np.ndarra
     return normalize_density(unvec(projector @ vec(state), state.shape[0]))
 
 
-def su2_schur_basis(
+def _su2_schur_basis_sequential(
     n_qubits: int,
 ) -> tuple[np.ndarray, dict[int, list[tuple[int, ...]]]]:
-    """Construct a coupled-spin basis |j,m,alpha> recursively.
+    """Construct a coupled-spin basis by sequentially adding spin-1/2 sites.
 
     Angular momenta are stored as doubled integers, avoiding half-integer
     rounding.  The path of intermediate spins labels the multiplicity index
@@ -851,6 +934,65 @@ def su2_schur_basis(
         gram, np.eye(2**n_qubits), atol=1e-10
     ):
         raise RuntimeError("Coupled-spin basis is not orthonormal.")
+    return basis, paths_by_spin
+
+
+SU2_CG_BASIS_CONVENTION = (
+    "original-notebook manual CG recursion: "
+    "N2 seed; N4=2x2; N6=4x2; N8=4x4; N12=6x6"
+)
+_MANUSCRIPT_CG_SIZES = frozenset({2, 4, 6, 8, 12})
+
+
+def su2_schur_basis(
+    n_qubits: int,
+    *,
+    convention: str = "manuscript",
+) -> tuple[np.ndarray, dict[int, list[tuple[int, ...]]]]:
+    """Construct the SU(2) CG basis used by the circuit audit.
+
+    ``convention="manuscript"`` uses :mod:`build_cg_basis`, whose block
+    recursion and multiplicity ordering reproduce the manual CG construction
+    of the original notebooks. ``convention="sequential"`` retains the
+    previous site-by-site recursion as an independent equivalence check.
+
+    The returned dictionary is keyed by doubled spin ``2j`` so existing twirl
+    routines can use ``len(paths_by_spin[2j])`` as the irrep multiplicity.
+    """
+    if convention == "sequential":
+        return _su2_schur_basis_sequential(n_qubits)
+    if convention != "manuscript":
+        raise ValueError(
+            "convention must be either 'manuscript' or 'sequential'."
+        )
+    if n_qubits not in _MANUSCRIPT_CG_SIZES:
+        raise ValueError(
+            "The manuscript CG recursion is available only for "
+            f"N in {sorted(_MANUSCRIPT_CG_SIZES)}; got N={n_qubits}. "
+            "Use convention='sequential' for other sizes."
+        )
+
+    from build_cg_basis import build_all
+
+    basis, _, multiplicities = build_all(
+        sizes=(n_qubits,),
+        verify=False,
+        verbose=False,
+    )[n_qubits]
+    paths_by_spin = {
+        2 * spin: [
+            (2 * spin, copy_index)
+            for copy_index in range(multiplicity)
+        ]
+        for spin, multiplicity in multiplicities.items()
+        if multiplicity > 0
+    }
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        gram = dagger(basis) @ basis
+    if not np.isfinite(gram).all() or not np.allclose(
+        gram, np.eye(2**n_qubits), atol=1e-10
+    ):
+        raise RuntimeError("Manuscript CG basis is not orthonormal.")
     return basis, paths_by_spin
 
 

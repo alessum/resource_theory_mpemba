@@ -74,6 +74,19 @@ def _staggered_tilt_product(n_qubits: int, theta: float) -> np.ndarray:
     return nu.kron_all(locals_)
 
 
+def _pair_product_state(
+    n_qubits: int, theta: float, *, swapped: bool
+) -> np.ndarray:
+    """Product over pairs of a singlet/polarized superposition."""
+    singlet = np.array([0, 1, -1, 0], dtype=complex) / np.sqrt(2)
+    polarized = np.array([1, 0, 0, 0], dtype=complex)
+    if swapped:
+        pair = np.sin(theta / 2) * singlet + np.cos(theta / 2) * polarized
+    else:
+        pair = np.cos(theta / 2) * singlet + np.sin(theta / 2) * polarized
+    return nu.kron_all([pair] * (n_qubits // 2))
+
+
 def _initial_states(candidate: str) -> np.ndarray:
     n_system = 8
     n_environment = 12
@@ -85,6 +98,69 @@ def _initial_states(candidate: str) -> np.ndarray:
                     environment,
                     nu.su2_tilted_state(
                         n_system, theta_fraction * np.pi
+                    ),
+                )
+                for theta_fraction in THETA_OVER_PI
+            ]
+        )
+    if candidate == "equation79_double_angle":
+        environment = nu.singlet_product(n_environment)
+        system_singlet = nu.singlet_product(n_system)
+        system_polarized = np.zeros(2**n_system, dtype=complex)
+        system_polarized[0] = 1
+        return np.column_stack(
+            [
+                np.kron(
+                    environment,
+                    np.cos(theta_fraction * np.pi) * system_singlet
+                    + np.sin(theta_fraction * np.pi) * system_polarized,
+                )
+                for theta_fraction in THETA_OVER_PI
+            ]
+        )
+    if candidate == "equation79_shifted_half_angle":
+        environment = nu.singlet_product(n_environment)
+        system_singlet = nu.singlet_product(n_system)
+        system_polarized = np.zeros(2**n_system, dtype=complex)
+        system_polarized[0] = 1
+        return np.column_stack(
+            [
+                np.kron(
+                    environment,
+                    np.cos(np.pi * (0.25 + theta_fraction / 2))
+                    * system_singlet
+                    + np.sin(np.pi * (0.25 + theta_fraction / 2))
+                    * system_polarized,
+                )
+                for theta_fraction in THETA_OVER_PI
+            ]
+        )
+    if candidate in {
+        "equation79_polarized_environment",
+        "equation79_swapped_polarized_environment",
+    }:
+        environment = np.zeros(2**n_environment, dtype=complex)
+        environment[0] = 1
+        system_singlet = nu.singlet_product(n_system)
+        system_polarized = np.zeros(2**n_system, dtype=complex)
+        system_polarized[0] = 1
+        swapped = candidate == "equation79_swapped_polarized_environment"
+        return np.column_stack(
+            [
+                np.kron(
+                    environment,
+                    (
+                        np.sin(theta_fraction * np.pi / 2)
+                        * system_singlet
+                        + np.cos(theta_fraction * np.pi / 2)
+                        * system_polarized
+                    )
+                    if swapped
+                    else (
+                        np.cos(theta_fraction * np.pi / 2)
+                        * system_singlet
+                        + np.sin(theta_fraction * np.pi / 2)
+                        * system_polarized
                     ),
                 )
                 for theta_fraction in THETA_OVER_PI
@@ -116,6 +192,25 @@ def _initial_states(candidate: str) -> np.ndarray:
                     np.sin(theta_fraction * np.pi / 2) * system_singlet
                     + np.cos(theta_fraction * np.pi / 2)
                     * system_polarized,
+                )
+                for theta_fraction in THETA_OVER_PI
+            ]
+        )
+    if candidate in {
+        "pair_product_singlet_environment",
+        "pair_product_swapped_singlet_environment",
+    }:
+        environment = nu.singlet_product(n_environment)
+        swapped = candidate == "pair_product_swapped_singlet_environment"
+        return np.column_stack(
+            [
+                np.kron(
+                    environment,
+                    _pair_product_state(
+                        n_system,
+                        theta_fraction * np.pi,
+                        swapped=swapped,
+                    ),
                 )
                 for theta_fraction in THETA_OVER_PI
             ]
@@ -253,9 +348,35 @@ def run_candidate(
     if sample_times[0] != 0 or sample_times[-1] > steps:
         raise ValueError("sample_times must include 0 and not exceed steps.")
 
-    initial_states = _initial_states(candidate)
+    two_branch_candidate = candidate in {
+        "equation79",
+        "equation79_double_angle",
+        "equation79_shifted_half_angle",
+        "eq79_swapped_singlet_environment",
+        "equation79_polarized_environment",
+        "equation79_swapped_polarized_environment",
+    }
+    if two_branch_candidate:
+        if candidate.endswith("polarized_environment"):
+            environment = np.zeros(2**n_environment, dtype=complex)
+            environment[0] = 1
+        else:
+            environment = nu.singlet_product(n_environment)
+        system_singlet = nu.singlet_product(n_system)
+        system_polarized = np.zeros(2**n_system, dtype=complex)
+        system_polarized[0] = 1
+        initial_states = np.column_stack(
+            [
+                np.kron(environment, system_singlet),
+                np.kron(environment, system_polarized),
+            ]
+        )
+    else:
+        initial_states = _initial_states(candidate)
 
-    schur_basis, paths_by_spin = nu.su2_schur_basis(n_system)
+    schur_basis, paths_by_spin = nu.su2_schur_basis(
+        n_system, convention="manuscript"
+    )
     j2_eigenbasis = None
     if measure == "j2_eigenbasis_dephasing":
         collective = nu.collective_spin(n_system)
@@ -290,10 +411,35 @@ def run_candidate(
         for time in range(steps + 1):
             if time in time_to_index:
                 sample_index = time_to_index[time]
-                for theta_index in range(len(THETA_OVER_PI)):
-                    state = np.ascontiguousarray(
-                        states[:, theta_index]
-                    )
+                for theta_index, theta_fraction in enumerate(THETA_OVER_PI):
+                    if two_branch_candidate:
+                        theta = theta_fraction * np.pi
+                        if candidate == "equation79_double_angle":
+                            singlet_amplitude = np.cos(theta)
+                            polarized_amplitude = np.sin(theta)
+                        elif candidate == "equation79_shifted_half_angle":
+                            effective_angle = np.pi * (
+                                0.25 + theta_fraction / 2
+                            )
+                            singlet_amplitude = np.cos(effective_angle)
+                            polarized_amplitude = np.sin(effective_angle)
+                        elif candidate in {
+                            "equation79",
+                            "equation79_polarized_environment",
+                        }:
+                            singlet_amplitude = np.cos(theta / 2)
+                            polarized_amplitude = np.sin(theta / 2)
+                        else:
+                            singlet_amplitude = np.sin(theta / 2)
+                            polarized_amplitude = np.cos(theta / 2)
+                        state = np.ascontiguousarray(
+                            singlet_amplitude * states[:, 0]
+                            + polarized_amplitude * states[:, 1]
+                        )
+                    else:
+                        state = np.ascontiguousarray(
+                            states[:, theta_index]
+                        )
                     if measure == "full_twirl":
                         value = cd._su2_asymmetry_from_global_pure(
                             state,
@@ -376,8 +522,14 @@ def main() -> None:
         "--candidate",
         choices=[
             "equation79",
+            "equation79_double_angle",
+            "equation79_shifted_half_angle",
+            "equation79_polarized_environment",
+            "equation79_swapped_polarized_environment",
             "historical_product",
             "eq79_swapped_singlet_environment",
+            "pair_product_singlet_environment",
+            "pair_product_swapped_singlet_environment",
             "staggered_system_singlet_environment",
             "staggered_global",
         ],
