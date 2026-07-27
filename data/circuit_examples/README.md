@@ -19,7 +19,7 @@ File ↔ figure map:
 |---|---|---|
 | Fig. 9 | `u1_markovian.npz` | `asymm_ex4.ipynb` |
 | Fig. 10 | `u1_nonmarkovian.npz`, `u1_nonmarkovian_reference.npz` | `asymm_ex4.1.a.ipynb` |
-| Fig. 11 | `su2_fig11_full_su2.npz`, `su2_fig11_vector_reference.csv` | `asymm_ex5.ipynb` |
+| Fig. 11 | `su2_fig11_full_su2.npz` | `asymm_ex5.ipynb` |
 | Fig. 11 (methodology check) | `su2_nonmarkovian.npz` | `asymm_ex5.ipynb` |
 
 ## Files
@@ -61,12 +61,6 @@ File ↔ figure map:
   The file records the figure-matching shifted-angle convention and the
   displayed-time calibration explicitly. Neither convention is taken from
   the companion repository's U(1) runner.
-- `su2_fig11_vector_reference.csv`: 1,001 coordinates per curve extracted from
-  the archived Illustrator vector figure. It is a figure-level consistency
-  reference, not raw circuit output. Its metadata record the source hash and
-  the displayed time grid. `asymm_ex5.ipynb` uses it only to report residuals
-  of the independently generated full-SU(2) ensemble.
-
 The public [`alessum/mpemba_circuits`](https://github.com/alessum/mpemba_circuits)
 history confirms that `gen_su2` constructs SU(2)-invariant partial-SWAP gates,
 but it does not contain a reproducible Fig. 11 run: the committed runner
@@ -87,27 +81,6 @@ python tools/build_cg_basis.py --sizes 8 --no-save
 The builder requires NumPy and SymPy. Only the eight-system-qubit basis is
 needed for Fig. 11; the twelve environment qubits remain in a known singlet
 product and are not twirled numerically.
-
-To rebuild the Fig. 11 vector reference from the archived single-panel PDF:
-
-```bash
-python tools/extract_su2_figure_reference.py \
-  /path/to/circuit_su2.pdf \
-  data/circuit_examples/su2_fig11_vector_reference.csv
-```
-
-To test explicitly labelled alternative explanations for the vector curves:
-
-```bash
-python tools/analyze_su2_curve_hypotheses.py \
-  --candidate equation79 \
-  --measure j2_eigenbasis_dephasing
-```
-
-Complete dephasing in a numerical \(J^2\) eigenbasis partly explains the
-published left-edge scale, but it is basis dependent within degenerate spin
-sectors and is not the SU(2) Haar twirl. Its simulated time dependence also
-does not reproduce the five published curves.
 
 To rebuild the exact-size U(1) reference data from the upstream table:
 

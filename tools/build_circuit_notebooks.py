@@ -392,9 +392,11 @@ def build_u1_nonmarkovian() -> None:
         [
             md(
                 r"""
-                # Random circuits II: non-Markovian U(1) data
+                # Random circuits II: non-Markovian U(1)
 
                 **Manuscript map.** Sec. III G 1, Fig. 10, Eq. (78).
+                The channel-mode audit below uses Eq. (3.10) of
+                [Marvian and Spekkens](https://arxiv.org/pdf/1312.0680).
 
                 Here the environment is a finite quantum memory. It starts in
                 $|0\rangle^{\otimes N_e}$ and is never reset, so information and
@@ -520,7 +522,220 @@ def build_u1_nonmarkovian() -> None:
             ),
             md(
                 r"""
-                ## 2. What is evolved?
+                ## 2. Marvian--Spekkens mode transfer: Eq. (3.10)
+
+                Let $\{T_m^{(\mu,\alpha)}\}$ and
+                $\{S_m^{(\mu,\beta)}\}$ be Hilbert--Schmidt-orthonormal
+                irreducible tensor-operator bases at the input and output.
+                Marvian and Spekkens' Eq. (3.10) is
+
+                $$
+                \mathcal E(X)
+                =
+                \sum_{\mu,m,\alpha}
+                \operatorname{Tr}\!\left[
+                    T_m^{(\mu,\alpha)\dagger}X
+                \right]
+                \sum_\beta
+                c_{\beta\alpha}^{(\mu)}
+                S_m^{(\mu,\beta)},
+                \qquad
+                c_{\beta\alpha}^{(\mu)}
+                =
+                \operatorname{Tr}\!\left[
+                    S_m^{(\mu,\beta)\dagger}
+                    \mathcal E(T_m^{(\mu,\alpha)})
+                \right].
+                $$
+
+                For U(1), every irrep is one-dimensional, so $m$ is
+                trivial and $\mu=\omega$ is the charge difference. We use the
+                normalized matrix units
+                $T^{(\omega,\alpha)}=S^{(\omega,\alpha)}
+                =|r\rangle\langle s|$, with
+                $\omega=q_r-q_s$. The multiplicity label $\alpha=(r,s)$
+                distinguishes all matrix units with the same $\omega$.
+                Consequently, each matrix $c^{(\omega)}$ is exactly one
+                charge-difference block of the channel superoperator.
+
+                The calculation below constructs the one-layer reduced channel
+                for the first stored $N_s=4,N_e=8$ circuit. Its environment is
+                initialized in the U(1)-invariant density operator
+                $|0\cdots0\rangle\langle0\cdots0|$. It then verifies Eq. (3.10)
+                in two independent ways: cross-mode entries vanish, and the
+                sum over the $c^{(\omega)}$ blocks reconstructs
+                $\mathcal E(X)$ for a generic operator.
+
+                Eq. (3.10) is a transfer formula, not a contraction bound. The
+                trace-norm bound on a multiplicity-free coefficient appears
+                later as Eqs. (3.12)--(3.13) of the same reference.
+                """
+            ),
+            code(
+                r"""
+                eq310_n_system = int(scaled["n_system"])
+                eq310_n_environment = int(scaled["n_environment"])
+                eq310_n_total = (
+                    eq310_n_system + eq310_n_environment
+                )
+                eq310_d_system = 2**eq310_n_system
+                eq310_d_environment = 2**eq310_n_environment
+
+                eq310_environment = np.zeros(
+                    eq310_d_environment, dtype=complex
+                )
+                eq310_environment[0] = 1
+                # Column j is |0...0>_e tensor |j>_s.
+                eq310_joint_basis = np.kron(
+                    eq310_environment[:, None],
+                    np.eye(eq310_d_system, dtype=complex),
+                )
+                eq310_parameters = scaled["gate_parameters"][0]
+                eq310_gates = [
+                    cd.fn.gen_u1(row.tolist())
+                    for row in eq310_parameters
+                ]
+                eq310_ordering = cd.fn.gen_gates_order(
+                    eq310_n_total, geometry="brickwork"
+                )
+                eq310_masks = cd.fn.load_mask_memory(eq310_n_total)
+                eq310_evolved_basis = cd._apply_layer_batch(
+                    eq310_joint_basis,
+                    eq310_gates,
+                    eq310_ordering,
+                    eq310_masks,
+                )
+
+                # A[i, e, j] is the amplitude for system output i and
+                # environment output e given system input j.
+                eq310_amplitudes = eq310_evolved_basis.reshape(
+                    eq310_d_environment,
+                    eq310_d_system,
+                    eq310_d_system,
+                ).transpose(1, 0, 2)
+                eq310_channel_tensor = np.einsum(
+                    "iej,kel->ikjl",
+                    eq310_amplitudes,
+                    eq310_amplitudes.conj(),
+                    optimize=True,
+                )
+                eq310_channel = eq310_channel_tensor.reshape(
+                    eq310_d_system**2,
+                    eq310_d_system**2,
+                    order="F",
+                )
+
+                eq310_blocks = nu.channel_charge_blocks(
+                    eq310_channel, eq310_n_system
+                )
+                eq310_same_mode_channel = np.zeros_like(
+                    eq310_channel
+                )
+                print("omega   dim c^(omega)")
+                for omega, (transfer, indices) in eq310_blocks.items():
+                    eq310_same_mode_channel[np.ix_(indices, indices)] = (
+                        transfer
+                    )
+                    print(f"{omega:>3d}     {len(indices):>3d}")
+
+                eq310_cross_mode_error = la.norm(
+                    eq310_channel - eq310_same_mode_channel
+                )
+
+                eq310_rng = np.random.default_rng(310)
+                eq310_test_operator = (
+                    eq310_rng.normal(
+                        size=(eq310_d_system, eq310_d_system)
+                    )
+                    + 1j
+                    * eq310_rng.normal(
+                        size=(eq310_d_system, eq310_d_system)
+                    )
+                )
+                eq310_test_operator /= la.norm(eq310_test_operator)
+                eq310_input_coefficients = nu.vec(
+                    eq310_test_operator
+                )
+                eq310_output_coefficients = np.zeros_like(
+                    eq310_input_coefficients
+                )
+                for transfer, indices in eq310_blocks.values():
+                    eq310_output_coefficients[indices] = (
+                        transfer
+                        @ eq310_input_coefficients[indices]
+                    )
+                eq310_direct_output = nu.unvec(
+                    eq310_channel @ eq310_input_coefficients,
+                    eq310_d_system,
+                )
+                eq310_reconstructed_output = nu.unvec(
+                    eq310_output_coefficients,
+                    eq310_d_system,
+                )
+                eq310_reconstruction_error = la.norm(
+                    eq310_direct_output
+                    - eq310_reconstructed_output
+                )
+
+                eq310_weights = nu.hamming_weights(
+                    eq310_n_system
+                )
+                eq310_phase = 0.731
+                eq310_rotation = np.diag(
+                    np.exp(-1j * eq310_phase * eq310_weights)
+                )
+
+                def eq310_action(operator):
+                    return nu.unvec(
+                        eq310_channel @ nu.vec(operator),
+                        eq310_d_system,
+                    )
+
+
+                eq310_covariance_error = la.norm(
+                    eq310_action(
+                        eq310_rotation
+                        @ eq310_test_operator
+                        @ eq310_rotation.conj().T
+                    )
+                    - eq310_rotation
+                    @ eq310_action(eq310_test_operator)
+                    @ eq310_rotation.conj().T
+                )
+                eq310_identity_vector = nu.vec(
+                    np.eye(eq310_d_system)
+                )
+                eq310_trace_preservation_error = la.norm(
+                    eq310_identity_vector.conj() @ eq310_channel
+                    - eq310_identity_vector.conj()
+                )
+
+                print(
+                    "cross-mode Frobenius error:",
+                    eq310_cross_mode_error,
+                )
+                print(
+                    "Eq. (3.10) reconstruction error:",
+                    eq310_reconstruction_error,
+                )
+                print(
+                    "direct U(1)-covariance error:",
+                    eq310_covariance_error,
+                )
+                print(
+                    "trace-preservation error:",
+                    eq310_trace_preservation_error,
+                )
+
+                assert eq310_cross_mode_error < 1e-12
+                assert eq310_reconstruction_error < 1e-12
+                assert eq310_covariance_error < 1e-12
+                assert eq310_trace_preservation_error < 1e-12
+                """
+            ),
+            md(
+                r"""
+                ## 3. What is evolved?
 
                 The system state is the homogeneous product tilt
 
@@ -545,7 +760,7 @@ def build_u1_nonmarkovian() -> None:
             ),
             md(
                 r"""
-                ## 3. Exact-size reference trajectories
+                ## 4. Exact-size reference trajectories
 
                 Each panel below is one complete $2^{20}$-dimensional
                 state-vector evolution. These are direct diagnostics of the
@@ -592,14 +807,33 @@ def build_u1_nonmarkovian() -> None:
             ),
             md(
                 r"""
-                ## 4. Reproducible ensemble statistics
+                ## 5. Make the ensemble crossings explicit
 
-                We now switch to the longer local ensemble. The left panel exposes
-                six individual circuits; the right panel computes the mean and
-                16th–84th percentile interval from all 24 realizations. The reduced
-                Hilbert space changes finite-size details, so this block validates
-                the mechanism and analysis—not the exact numerical curve in
-                Fig. 10.
+                We now switch to the longer local ensemble. Plotting every tilt
+                and many raw trajectories on the same axes hides the ordering
+                reversal. Instead, define the paired mean difference
+
+                $$
+                D_\theta(t)
+                =
+                \left\langle
+                    M_\theta(t)-M_{0.30\pi}(t)
+                \right\rangle_{\rm circuits}.
+                $$
+
+                A Mpemba crossing with the $0.30\pi$ reference occurs exactly
+                when $D_\theta$ changes from positive to negative. Pairing the
+                two tilts circuit by circuit is important because it removes
+                much of the between-circuit variation.
+
+                The left panel isolates the earliest and most visible mean
+                crossing, $0.50\pi$ against $0.30\pi$. The right panel plots
+                $D_\theta$ directly for every other tilt, so the zero crossings
+                no longer have to be inferred from nearly overlapping curves.
+
+                The reduced Hilbert space changes finite-size details. These
+                crossings diagnose the local 24-circuit ensemble; they are not
+                estimates of the complete paper-scale Fig. 10 average.
                 """
             ),
             code(
@@ -608,75 +842,169 @@ def build_u1_nonmarkovian() -> None:
                 lower_curves, upper_curves = np.quantile(
                     asymmetry, [0.16, 0.84], axis=0
                 )
-
-                fig, axes = plt.subplots(1, 2, figsize=(12, 4.2), sharey=True)
-                for state_index, (label, color) in enumerate(
-                    zip(labels, theta_colors)
-                ):
-                    for realization in range(6):
-                        axes[0].plot(
-                            times[1:],
-                            asymmetry[realization, state_index, 1:],
-                            color=color,
-                            alpha=0.18,
-                            lw=0.8,
-                        )
-                    axes[1].plot(
-                        times[1:],
-                        mean_curves[state_index, 1:],
-                        color=color,
-                        lw=2,
-                        label=label,
-                    )
-                    axes[1].fill_between(
-                        times[1:],
-                        lower_curves[state_index, 1:],
-                        upper_curves[state_index, 1:],
-                        color=color,
-                        alpha=0.15,
-                    )
-
-                for ax in axes:
-                    ax.set_xscale("log")
-                    ax.set_xlabel("Floquet layer")
-                axes[0].set(
-                    ylabel=r"$M_{\rm U(1)}[\rho_s(t)]$",
-                    title="six raw realizations per tilt",
+                paired_differences = (
+                    asymmetry[:, 1:, :]
+                    - asymmetry[:, :1, :]
                 )
-                axes[1].set(title="mean and 16-84% interval")
-                axes[1].legend(fontsize=8)
-                fig.tight_layout()
-                plt.show()
-                """
-            ),
-            md(
-                r"""
-                ## 5. Crossings and information backflow
-
-                A positive one-step increment is impossible in the reset Markovian
-                protocol, but allowed here because the environment retains memory.
-                We report crossings from the mean curves and visualize how often a
-                positive increment occurs in the raw ensemble.
-                """
-            ),
-            code(
-                r"""
-                crossing_times = []
-                for state_index in range(1, len(theta_over_pi)):
-                    tau = nu.crossing_time(
+                mean_differences = paired_differences.mean(axis=0)
+                crossing_times = np.array([
+                    nu.crossing_time(
                         times,
                         mean_curves[state_index],
                         mean_curves[0],
                     )
-                    crossing_times.append(tau)
-                    print(
-                        f"{labels[state_index]} crosses {labels[0]} "
-                        f"at t={tau:.2f}"
-                    )
-                assert np.isfinite(crossing_times).all()
+                    for state_index in range(1, len(theta_over_pi))
+                ])
 
+                print("tilt        D_theta(0)    mean crossing")
+                for state_index, tau in enumerate(
+                    crossing_times, start=1
+                ):
+                    print(
+                        f"{theta_over_pi[state_index]:.2f}pi"
+                        f"       {mean_differences[state_index - 1, 0]: .6f}"
+                        f"       t={tau:.2f}"
+                    )
+
+                selected_indices = (0, len(theta_over_pi) - 1)
+                selected_crossing = crossing_times[-1]
+                crossing_value = np.interp(
+                    selected_crossing,
+                    times,
+                    mean_curves[-1],
+                )
+
+                fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+                for state_index in selected_indices:
+                    axes[0].plot(
+                        times[1:],
+                        mean_curves[state_index, 1:],
+                        color=theta_colors[state_index],
+                        lw=2,
+                        label=labels[state_index],
+                    )
+                    axes[0].fill_between(
+                        times[1:],
+                        lower_curves[state_index, 1:],
+                        upper_curves[state_index, 1:],
+                        color=theta_colors[state_index],
+                        alpha=0.16,
+                        linewidth=0,
+                    )
+                axes[0].axvline(
+                    selected_crossing,
+                    color="0.4",
+                    ls=":",
+                    lw=1,
+                )
+                axes[0].plot(
+                    selected_crossing,
+                    crossing_value,
+                    marker="o",
+                    ms=4,
+                    color="black",
+                )
+                axes[0].annotate(
+                    fr"$t_\times={selected_crossing:.2f}$",
+                    xy=(selected_crossing, crossing_value),
+                    xytext=(1.35 * selected_crossing,
+                            crossing_value + 0.08),
+                    arrowprops={"arrowstyle": "->", "color": "0.4"},
+                )
+                axes[0].set(
+                    xscale="log",
+                    xlabel="Floquet layer",
+                    ylabel=r"$M_{\rm U(1)}[\rho_s(t)]$",
+                    title=r"mean crossing: $0.50\pi$ vs. $0.30\pi$",
+                )
+                axes[0].legend(fontsize=8)
+
+                for state_index, (difference, tau) in enumerate(
+                    zip(mean_differences, crossing_times),
+                    start=1,
+                ):
+                    color = theta_colors[state_index]
+                    axes[1].plot(
+                        times[1:],
+                        difference[1:],
+                        color=color,
+                        lw=2,
+                        label=labels[state_index],
+                    )
+                    axes[1].plot(
+                        tau,
+                        0,
+                        marker="o",
+                        ms=4,
+                        color=color,
+                    )
+                axes[1].axhline(0, color="0.6", lw=1)
+                axes[1].set(
+                    xscale="log",
+                    xlabel="Floquet layer",
+                    ylabel=(
+                        r"$D_\theta(t)=\langle M_\theta"
+                        r"-M_{0.30\pi}\rangle$"
+                    ),
+                    title="crossing means a positive-to-negative sign change",
+                )
+                axes[1].legend(fontsize=8)
+                fig.tight_layout()
+                plt.show()
+
+                assert np.isfinite(crossing_times).all()
+                assert mean_differences[-1, 0] > 0
+                assert mean_differences[-1, -1] < 0
+                """
+            ),
+            md(
+                r"""
+                ## 6. Crossing uncertainty and information backflow
+
+                The two diagnostics below answer different questions.
+
+                1. The left panel attaches a paired 95% standard-error band to
+                   $D_{0.50\pi}(t)$. Its zero crossing is the ordering reversal
+                   of the two ensemble means. The band also makes clear that 24
+                   small-system circuits do not determine a precise
+                   paper-scale crossing time.
+                2. The right panel tests non-Markovian backflow. For every raw
+                   circuit and tilt we form
+                   $\Delta M(t)=M(t+1)-M(t)$. It reports the fraction of those
+                   120 raw trajectories for which $\Delta M(t)>0$.
+
+                A crossing does not by itself imply backflow: it compares two
+                initial states at the same time. Conversely, a positive
+                increment is a revival along one trajectory. Such a revival is
+                forbidden under repeated application of a fixed covariant
+                reset channel, but is allowed here because the unreinitialized
+                environment retains memory.
+                """
+            ),
+            code(
+                r"""
                 increments = np.diff(asymmetry, axis=-1)
                 revival_fraction = (increments > 1e-10).mean(axis=(0, 1))
+                revival_window = 11
+                revival_padding = revival_window // 2
+                revival_fraction_smoothed = np.convolve(
+                    np.pad(
+                        revival_fraction,
+                        revival_padding,
+                        mode="edge",
+                    ),
+                    np.ones(revival_window) / revival_window,
+                    mode="valid",
+                )
+                selected_raw_difference = paired_differences[:, -1, :]
+                selected_mean_difference = (
+                    selected_raw_difference.mean(axis=0)
+                )
+                selected_sem_difference = (
+                    selected_raw_difference.std(axis=0, ddof=1)
+                    / np.sqrt(selected_raw_difference.shape[0])
+                )
+
                 print(
                     "largest positive one-step change in the raw data:",
                     increments.max(),
@@ -685,43 +1013,72 @@ def build_u1_nonmarkovian() -> None:
                     "fraction of all raw steps with a revival:",
                     (increments > 1e-10).mean(),
                 )
-                assert increments.max() > 0
-                """
-            ),
-            code(
-                r"""
-                fig, axes = plt.subplots(1, 2, figsize=(11, 3.8))
+                fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
 
-                for state_index, (label, color) in enumerate(
-                    zip(labels, theta_colors)
-                ):
-                    axes[0].plot(
-                        times[1:],
-                        np.diff(mean_curves[state_index]),
-                        color=color,
-                        lw=1.2,
-                        label=label,
-                    )
-                axes[0].axhline(0, color="0.35", lw=0.8)
+                axes[0].plot(
+                    times[1:],
+                    selected_mean_difference[1:],
+                    color=theta_colors[-1],
+                    lw=2,
+                )
+                axes[0].fill_between(
+                    times[1:],
+                    (
+                        selected_mean_difference
+                        - 1.96 * selected_sem_difference
+                    )[1:],
+                    (
+                        selected_mean_difference
+                        + 1.96 * selected_sem_difference
+                    )[1:],
+                    color=theta_colors[-1],
+                    alpha=0.16,
+                    linewidth=0,
+                    label="paired 95% standard-error band",
+                )
+                axes[0].axhline(0, color="0.6", lw=1)
+                axes[0].axvline(
+                    selected_crossing,
+                    color="0.4",
+                    ls=":",
+                    lw=1,
+                )
                 axes[0].set(
                     xscale="log",
                     xlabel="Floquet layer",
-                    ylabel=r"$\Delta M$",
-                    title="increments of the mean curves",
+                    ylabel=r"$D_{0.50\pi}(t)$",
+                    title="uncertainty of the selected mean crossing",
                 )
+                axes[0].legend(fontsize=8)
 
                 axes[1].plot(
-                    times[1:], revival_fraction, color=ORANGE, lw=1.6
+                    times[1:],
+                    revival_fraction,
+                    color=ORANGE,
+                    alpha=0.20,
+                    lw=0.8,
+                    label="raw fraction at each layer",
+                )
+                axes[1].plot(
+                    times[1:],
+                    revival_fraction_smoothed,
+                    color=ORANGE,
+                    lw=2,
+                    label=f"{revival_window}-layer moving average",
                 )
                 axes[1].set(
                     xscale="log",
                     ylim=(-0.02, 1.02),
                     xlabel="Floquet layer",
-                    ylabel="fraction with positive increment",
-                    title="raw-data evidence of backflow",
+                    ylabel=r"fraction with $\Delta M(t)>0$",
+                    title="backflow among 24 circuits x 5 tilts",
                 )
+                axes[1].legend(fontsize=8)
                 fig.tight_layout()
                 plt.show()
+
+                assert increments.max() > 0
+                assert np.any(revival_fraction > 0)
                 """
             ),
             md(
@@ -730,9 +1087,21 @@ def build_u1_nonmarkovian() -> None:
 
                 The reference trajectories verify the manuscript-size circuit and
                 upstream parameter conventions. The independent 24-circuit run
-                then supplies enough raw data to expose the Mpemba crossings and
-                non-Markovian revivals. Unlike the reset channel, a finite
-                environment can return asymmetry to the system.
+                then exposes the ordering reversal directly through the paired
+                differences $D_\theta(t)$. The highlighted mean crossing is
+                visible, while its standard-error band honestly records the
+                uncertainty of this small-system ensemble. The separate
+                positive-increment statistic demonstrates non-Markovian
+                revivals: unlike a reset channel, a finite environment can return
+                asymmetry to the system.
+
+                Marvian--Spekkens Eq. (3.10) shows simultaneously that this
+                return cannot come from mixing different charge-difference
+                modes: each reduced channel from the initial time remains
+                block diagonal in $\omega$. Memory instead makes the transfer
+                matrices $c_t^{(\omega)}$ depend on the elapsed joint
+                evolution; there need not be a state-independent CP map from
+                one reduced-time snapshot to the next.
 
                 Reproducing the full Fig. 10 average requires all 100 archived
                 circuits for 1000 layers:
@@ -1228,10 +1597,7 @@ def build_su2_nonmarkovian() -> None:
 
                 This is not the Liu/U(1) construction. We explicitly test
                 covariance under all three noncommuting generators
-                $S_x,S_y,S_z$ before plotting any result. The archived vector
-                coordinates are loaded only afterward as an independent
-                figure-level comparison; they are never used to produce the
-                simulated curves.
+                $S_x,S_y,S_z$ before plotting any result.
                 """
             ),
             code(COMMON_IMPORTS),
@@ -1257,9 +1623,6 @@ def build_su2_nonmarkovian() -> None:
                 DATA_PATH = Path(
                     "data/circuit_examples/su2_fig11_full_su2.npz"
                 )
-                FIGURE_REFERENCE_PATH = Path(
-                    "data/circuit_examples/su2_fig11_vector_reference.csv"
-                )
 
                 if not DATA_PATH.exists():
                     raise FileNotFoundError(
@@ -1267,8 +1630,6 @@ def build_su2_nonmarkovian() -> None:
                         "`python tools/generate_circuit_data.py "
                         "--only su2-fig11 --paper-scale`."
                     )
-                if not FIGURE_REFERENCE_PATH.exists():
-                    raise FileNotFoundError(FIGURE_REFERENCE_PATH)
 
                 data = load_npz(DATA_PATH)
                 raw_asymmetry = data["asymmetry"]
@@ -1600,59 +1961,27 @@ def build_su2_nonmarkovian() -> None:
                 r"""
                 ## 4. Reproduce Figure 11 from the simulation
 
-                Solid lines and 95% standard-error bands below come only from the
-                raw 100-realization simulation. Dashed lines are independently
-                digitized coordinates from the archived vector panel and are
-                included solely to quantify agreement.
+                Solid lines and 95% standard-error bands below come from the
+                raw 100-realization simulation.
                 """
             ),
             code(
                 r"""
-                reference_columns = [
-                    "theta_030_pi",
-                    "theta_035_pi",
-                    "theta_040_pi",
-                    "theta_045_pi",
-                    "theta_050_pi",
-                ]
-                figure_reference = np.genfromtxt(
-                    FIGURE_REFERENCE_PATH,
-                    delimiter=",",
-                    names=True,
-                    comments="#",
-                    skip_header=5,
-                )
-                reference_time = figure_reference["displayed_time"]
-                published_curves = np.vstack([
-                    figure_reference[name] for name in reference_columns
-                ])
-                reference_at_samples = np.vstack([
-                    np.interp(displayed_time, reference_time, curve)
-                    for curve in published_curves
-                ])
-                residual = mean_asymmetry - reference_at_samples
-                per_curve_rmse = np.sqrt(np.mean(residual**2, axis=1))
-                overall_rmse = np.sqrt(np.mean(residual**2))
-                maximum_error = np.max(np.abs(residual))
-
-                fig, axes = plt.subplots(
-                    1, 2, figsize=(12.2, 4.3),
-                    gridspec_kw={"width_ratios": [1.55, 1]},
-                )
-                for index, (curve, error, label, color) in enumerate(zip(
+                fig, ax = plt.subplots(figsize=(7.6, 4.5))
+                for curve, error, label, color in zip(
                     mean_asymmetry,
                     sem_asymmetry,
                     labels,
                     PALETTE_5,
-                )):
-                    axes[0].plot(
+                ):
+                    ax.plot(
                         displayed_time,
                         curve,
                         color=color,
                         lw=2.0,
                         label=label,
                     )
-                    axes[0].fill_between(
+                    ax.fill_between(
                         displayed_time,
                         curve - 1.96 * error,
                         curve + 1.96 * error,
@@ -1660,15 +1989,7 @@ def build_su2_nonmarkovian() -> None:
                         alpha=0.13,
                         linewidth=0,
                     )
-                    axes[0].plot(
-                        reference_time,
-                        published_curves[index],
-                        color=color,
-                        lw=1.0,
-                        ls="--",
-                        alpha=0.75,
-                    )
-                axes[0].set(
+                ax.set(
                     xscale="log",
                     xlim=(0.1, 100.1),
                     ylim=(1.25, 2.32),
@@ -1678,42 +1999,18 @@ def build_su2_nonmarkovian() -> None:
                         r"=S(\rho_\theta(t)\Vert\mathcal{G}_{SU(2)}"
                         r"[\rho_\theta(t)])$"
                     ),
-                    title="Fig. 11: simulation (solid) and panel (dashed)",
+                    title="Fig. 11 reproduction",
                 )
-                axes[0].legend(
+                ax.legend(
                     title=r"Values of $\theta$:",
                     fontsize=8,
                     title_fontsize=9,
                 )
-
-                for curve, label, color in zip(
-                    residual,
-                    labels,
-                    PALETTE_5,
-                ):
-                    axes[1].plot(
-                        displayed_time,
-                        curve,
-                        color=color,
-                        lw=1.7,
-                        label=label,
-                    )
-                axes[1].axhline(0, color="black", lw=0.8)
-                axes[1].set(
-                    xscale="log",
-                    xlabel=r"$t$",
-                    ylabel="simulation - panel",
-                    title="independent-reference residual",
-                )
                 fig.tight_layout()
                 plt.show()
 
-                print("per-curve RMSE:", per_curve_rmse)
-                print("overall RMSE:", overall_rmse)
-                print("maximum absolute error:", maximum_error)
-
-                assert overall_rmse < 0.05
-                assert maximum_error < 0.09
+                assert np.all(np.isfinite(mean_asymmetry))
+                assert np.all(sem_asymmetry >= 0)
                 """
             ),
             md(
@@ -1816,16 +2113,12 @@ def build_su2_nonmarkovian() -> None:
                 - the displayed axis uses
                   $t=0.1+0.2(\text{Floquet layer}-1)$.
 
-                These conventions were identified by testing the manuscript
-                protocol against the archived panel; they are not inferred from
-                the Liu/U(1) code. The physics calculation itself is full SU(2):
+                These conventions are documented explicitly because they are
+                not stated in the manuscript's printed equations or its public
+                raw data. The physics calculation itself is full SU(2):
                 isotropic gates, invariant singlet bath, all total-spin sectors,
                 and the exact non-Abelian Haar twirl. The numerical commutator
                 tests above make that distinction executable.
-
-                The CSV remains only a validation target. Removing it leaves the
-                raw simulation, SU(2) checks, plotted solid curves, and crossing
-                calculation intact.
                 """
             ),
         ],

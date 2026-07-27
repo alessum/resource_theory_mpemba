@@ -1,7 +1,11 @@
-"""Execute and validate every publishable notebook in repository order."""
+"""Execute and validate publishable notebooks in repository order.
+
+Pass one or more notebook filenames to execute only those files.
+"""
 
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 
@@ -21,11 +25,19 @@ NOTEBOOKS = [
     "asymm_ex4.1.a.ipynb",
     "asymm_ex5.ipynb",
     "asymm_ex6.ipynb",
+    "Mpemba_nonstatioinarity.ipynb",
+    "Mpemba_ETH.ipynb",
+    "Mpemba_QFI_monotone.ipynb",
 ]
 
 
 def main() -> None:
-    for filename in NOTEBOOKS:
+    requested = sys.argv[1:]
+    unknown = set(requested) - set(NOTEBOOKS)
+    if unknown:
+        raise ValueError(f"Unknown notebook filename(s): {sorted(unknown)}")
+    selected = requested or NOTEBOOKS
+    for filename in selected:
         path = ROOT / filename
         notebook = nbformat.read(path, as_version=4)
         started = time.perf_counter()

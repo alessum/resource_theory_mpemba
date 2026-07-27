@@ -72,6 +72,7 @@ def _reference_dataset(
     checkout: Path | None,
     *,
     paper_scale: bool,
+    workers: int,
 ) -> dict:
     stored_path = DATA_DIR / "u1_nonmarkovian_reference.npz"
     if checkout is not None:
@@ -91,7 +92,13 @@ def _reference_dataset(
     indices = (
         np.arange(100, dtype=int) if paper_scale else REFERENCE_CIRCUITS
     )
-    return cd.generate_u1_nonmarkovian(
+    generator = (
+        cd.generate_u1_nonmarkovian_sector
+        if paper_scale
+        else cd.generate_u1_nonmarkovian
+    )
+    generator_kwargs = {"workers": workers} if paper_scale else {}
+    return generator(
         n_realizations=len(indices),
         steps=1_000 if paper_scale else 100,
         n_system=8,
@@ -111,6 +118,7 @@ def _reference_dataset(
         ),
         sample_times=None if paper_scale else REFERENCE_SAMPLE_TIMES,
         progress=_progress,
+        **generator_kwargs,
     )
 
 
@@ -151,7 +159,19 @@ def main() -> None:
             "system size."
         ),
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=min(10, os.cpu_count() or 1),
+        help=(
+            "Concurrent exact U(1)-sector simulations for a paper-scale "
+            "Fig. 10 run (default: up to 10). Set to 1 for deterministic "
+            "single-worker benchmarking."
+        ),
+    )
     args = parser.parse_args()
+    if args.workers < 1:
+        parser.error("--workers must be at least one")
 
     if args.only in ("all", "u1-markovian"):
         _save(
@@ -165,7 +185,9 @@ def main() -> None:
             _save(
                 "u1_nonmarkovian_reference.npz",
                 _reference_dataset(
-                    args.reference_checkout, paper_scale=True
+                    args.reference_checkout,
+                    paper_scale=True,
+                    workers=args.workers,
                 ),
             )
         else:
@@ -180,7 +202,9 @@ def main() -> None:
         _save(
             "u1_nonmarkovian_reference.npz",
             _reference_dataset(
-                args.reference_checkout, paper_scale=args.paper_scale
+                args.reference_checkout,
+                paper_scale=args.paper_scale,
+                workers=args.workers,
             ),
         )
 

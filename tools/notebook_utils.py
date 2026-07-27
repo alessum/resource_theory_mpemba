@@ -243,6 +243,102 @@ def davies_liouvillian(
     return liouvillian, energies, energy_basis, steady_state
 
 
+def lindblad_liouvillian(
+    hamiltonian: np.ndarray, collapse_operators: list[np.ndarray]
+) -> np.ndarray:
+    """Dense column-vectorized Lindblad generator for small Hilbert spaces."""
+    hamiltonian = np.asarray(hamiltonian, dtype=complex)
+    dimension = hamiltonian.shape[0]
+    if hamiltonian.shape != (dimension, dimension):
+        raise ValueError("Hamiltonian must be square.")
+    identity = np.eye(dimension, dtype=complex)
+    generator = -1j * (
+        np.kron(identity, hamiltonian)
+        - np.kron(hamiltonian.T, identity)
+    )
+    for collapse in collapse_operators:
+        collapse = np.asarray(collapse, dtype=complex)
+        if collapse.shape != hamiltonian.shape:
+            raise ValueError("Collapse operators must match the Hamiltonian.")
+        squared = dagger(collapse) @ collapse
+        generator += (
+            np.kron(collapse.conj(), collapse)
+            - 0.5 * np.kron(identity, squared)
+            - 0.5 * np.kron(squared.T, identity)
+        )
+    return generator
+
+
+def stationary_density(
+    liouvillian: np.ndarray, dimension: int
+) -> np.ndarray:
+    """Return the trace-one stationary state of a finite Lindbladian."""
+    values, vectors = la.eig(liouvillian)
+    index = int(np.argmin(np.abs(values)))
+    state = unvec(vectors[:, index], dimension)
+    state = normalize_density(state)
+    residual = la.norm(liouvillian @ vec(state))
+    if residual > 1e-8:
+        raise RuntimeError(
+            f"Stationary-state residual is unexpectedly large: {residual:.3e}"
+        )
+    return state
+
+
+def spin_j_operators(
+    n_spins: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Collective spin matrices in the maximal-spin ``j=n_spins/2`` sector."""
+    if n_spins < 1:
+        raise ValueError("n_spins must be positive")
+    spin = n_spins / 2
+    dimension = n_spins + 1
+    magnetic = np.arange(spin, -spin - 1, -1, dtype=float)
+    raising = np.zeros((dimension, dimension), dtype=complex)
+    for column, value in enumerate(magnetic):
+        if column > 0:
+            raising[column - 1, column] = np.sqrt(
+                spin * (spin + 1) - value * (value + 1)
+            )
+    lowering = dagger(raising)
+    x_operator = (raising + lowering) / 2
+    y_operator = (raising - lowering) / (2j)
+    z_operator = np.diag(magnetic).astype(complex)
+    return x_operator, y_operator, z_operator
+
+
+def metric_adjusted_qfi(
+    state: np.ndarray,
+    liouvillian: np.ndarray,
+    monotone_function,
+    *,
+    cutoff: float = 1e-13,
+) -> float:
+    """QFI about Lindblad time for one operator-monotone function ``f``.
+
+    Implements Eq. (F3) of the published manuscript,
+
+        I_f = sum_xy |<x|L[rho]|y>|^2 /
+              (p_x f(p_y / p_x)).
+    """
+    state = normalize_density(state, clip=0)
+    probabilities, basis = la.eigh(state)
+    derivative = unvec(liouvillian @ vec(state), state.shape[0])
+    derivative = dagger(basis) @ derivative @ basis
+    value = 0.0
+    for row, probability_row in enumerate(probabilities):
+        if probability_row <= cutoff:
+            continue
+        for column, probability_column in enumerate(probabilities):
+            if probability_column <= cutoff:
+                continue
+            denominator = probability_row * monotone_function(
+                probability_column / probability_row
+            )
+            value += abs(derivative[row, column]) ** 2 / denominator
+    return float(np.real(value))
+
+
 def evolve_density(
     liouvillian: np.ndarray, rho0: np.ndarray, times: np.ndarray
 ) -> np.ndarray:

@@ -4,13 +4,17 @@ The notebooks are generated from plain Python strings so their structure,
 metadata, and presentation stay consistent.  Execute this script from the
 repository root after editing notebook prose or code below.
 
-This file is a script, not a library: importing it would clobber the ten
+Pass one or more notebook filenames to rebuild only those files. With no
+arguments, all thirteen walkthroughs are regenerated.
+
+This file is a script, not a library: importing it would clobber the
 top-level notebooks with source-only versions (no stored outputs). The guard
 below turns any import attempt into an explicit error.
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -26,6 +30,8 @@ if __name__ != "__main__":
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REQUESTED_NOTEBOOKS = set(sys.argv[1:])
+WRITTEN_NOTEBOOKS: list[str] = []
 
 
 def _source(text: str) -> str:
@@ -41,18 +47,37 @@ def code(text: str):
 
 
 def write_notebook(filename: str, cells: list) -> None:
+    if REQUESTED_NOTEBOOKS and filename not in REQUESTED_NOTEBOOKS:
+        return
     notebook = nbf.v4.new_notebook(
         cells=cells,
         metadata={
+            "authors": [
+                {"name": "Alessandro Summer"},
+                {"name": "Mattia Moroder"},
+                {"name": "Laetitia P. Bettmann"},
+                {"name": "Xhek Turkeshi"},
+                {"name": "Iman Marvian"},
+                {"name": "John Goold"},
+            ],
             "kernelspec": {
                 "display_name": "Python 3",
                 "language": "python",
                 "name": "python3",
             },
             "language_info": {"name": "python", "version": "3"},
+            "paper": {
+                "doi": "10.1103/rbt4-psfd",
+                "journal": "Physical Review X 16, 011065 (2026)",
+                "title": (
+                    "Resource-Theoretical Unification of Mpemba Effects: "
+                    "Classical and Quantum"
+                ),
+            },
         },
     )
     nbf.write(notebook, ROOT / filename)
+    WRITTEN_NOTEBOOKS.append(filename)
 
 
 COMMON_IMPORTS = r"""
@@ -2026,9 +2051,8 @@ write_notebook(
 
             The published vector curves fail the covariance bound implied by
             literal Eq. (79), while the archived helper code also contains mixed
-            entropy-log conventions. The maintained `asymm_ex5.ipynb` performs
-            that consistency audit and keeps vectorized figure data separate from
-            raw simulation trajectories.
+            entropy-log conventions. The maintained `asymm_ex5.ipynb` reproduces
+            the five Fig. 11 curves directly from the exact SU(2) simulation.
             """
         ),
         md(
@@ -2278,9 +2302,994 @@ write_notebook(
 )
 
 
+write_notebook(
+    "Mpemba_nonstatioinarity.ipynb",
+    [
+        md(
+            r"""
+            # Nonstationary Mpemba relaxation in a driven collective-spin model
+
+            **Paper companion.** Appendix A and Fig. S1 in the supplementary
+            numbering; Eq. (A4) and Fig. 14 in the published article.
+
+            This notebook constructs the all-to-all Rydberg-like model in the
+            maximal-spin sector, finds its nonthermal stationary state, and
+            generates both pure initial states from a documented slow-mode
+            selection rule. It therefore replaces the opaque
+            `FigS1_data.pkl` dependency of the original figure notebook.
+
+            **Reproduction status.** Independent reconstruction at the published
+            parameters. No state, trajectory, or fitted curve is loaded.
+
+            **Reference.** A. Summer *et al.*, *Phys. Rev. X* **16**, 011065
+            (2026), [doi:10.1103/rbt4-psfd](https://doi.org/10.1103/rbt4-psfd).
+            """
+        ),
+        code(COMMON_IMPORTS),
+        md(
+            r"""
+            ## 1. Model and nonthermal stationary state
+
+            In the symmetric sector \(j=N_s/2\), the Hilbert-space dimension is
+            only \(N_s+1\). The model is
+
+            $$
+            H=\Omega S_x-\Delta S_z+\frac{V}{N_s}S_z^2,\qquad
+            L_1=\sqrt{\kappa}\,S_- .
+            $$
+
+            Its unique fixed point is not a Gibbs state of \(H\). The resource
+            monotone is consequently the nonstationarity
+            \(M(\rho)=S(\rho\Vert\pi)\).
+            """
+        ),
+        code(
+            r"""
+            N_S = 5
+            OMEGA = 1.0
+            DELTA = -1.0
+            V = 3.0
+            KAPPA = 0.01
+
+            Sx, Sy, Sz = nu.spin_j_operators(N_S)
+            Sminus = Sx - 1j * Sy
+            H = OMEGA * Sx - DELTA * Sz + (V / N_S) * (Sz @ Sz)
+            L = nu.lindblad_liouvillian(
+                H, [np.sqrt(KAPPA) * Sminus]
+            )
+            pi = nu.stationary_density(L, N_S + 1)
+
+            nu.validate_density(pi)
+            assert la.norm(L @ nu.vec(pi)) < 1e-9
+            assert not np.allclose(pi, nu.gibbs_state(H, 1.0), atol=1e-3)
+
+            print(f"Symmetric-sector dimension: {N_S + 1}")
+            print("Stationary-state eigenvalues:")
+            print(la.eigvalsh(pi))
+            """
+        ),
+        md(
+            r"""
+            ## 2. Auditable initial-state protocol
+
+            The paper specifies that the pair is chosen to have opposite initial
+            and asymptotic orderings, but the archived pickle contains no random
+            seed or preparation metadata. We make that selection rule executable:
+
+            - draw a fixed-seed pool of Haar-distributed pure states;
+            - among the lowest quartile of overlaps with the slowest decaying
+              left mode, choose the state with largest \(S(\rho\Vert\pi)\);
+            - choose the comparison state from the highest overlap quintile,
+              subject to smaller initial nonstationarity.
+
+            This is a deterministic implementation of the slow-mode protocol,
+            rather than a fit to the plotted curves.
+            """
+        ),
+        code(
+            r"""
+            eigenvalues, left_modes, right_modes = la.eig(
+                L, left=True, right=True
+            )
+            decaying = [
+                index
+                for index in np.argsort(eigenvalues.real)[::-1]
+                if eigenvalues[index].real < -1e-10
+            ]
+            slow_index = decaying[0]
+            slow_left = left_modes[:, slow_index]
+            slow_left /= la.norm(slow_left)
+
+            rng = np.random.default_rng(20_260_727)
+            pool_size = 4_000
+            kets = rng.normal(size=(pool_size, N_S + 1))
+            kets = kets + 1j * rng.normal(size=kets.shape)
+            kets /= la.norm(kets, axis=1)[:, None]
+
+            log_pi = la.logm(pi)
+            initial_resources = np.real(
+                -np.einsum("bi,ij,bj->b", kets.conj(), log_pi, kets)
+            )
+            density_vectors = np.stack(
+                [nu.vec(np.outer(ket, ket.conj())) for ket in kets]
+            )
+            slow_overlaps = np.abs(density_vectors @ slow_left.conj())
+
+            low_threshold = np.quantile(slow_overlaps, 0.25)
+            high_threshold = np.quantile(slow_overlaps, 0.80)
+            fast_candidates = np.flatnonzero(
+                slow_overlaps <= low_threshold
+            )
+            fast_index = fast_candidates[
+                np.argmax(initial_resources[fast_candidates])
+            ]
+            reference_candidates = np.flatnonzero(
+                (slow_overlaps >= high_threshold)
+                & (initial_resources < initial_resources[fast_index])
+            )
+            reference_index = reference_candidates[
+                np.argmax(
+                    slow_overlaps[reference_candidates]
+                    / initial_resources[reference_candidates]
+                )
+            ]
+
+            ket_1 = kets[fast_index]
+            ket_2 = kets[reference_index]
+            rho_1 = np.outer(ket_1, ket_1.conj())
+            rho_2 = np.outer(ket_2, ket_2.conj())
+
+            print(f"Slow eigenvalue: {eigenvalues[slow_index]:.7g}")
+            print(
+                "rho_1: "
+                f"M(0)={initial_resources[fast_index]:.5f}, "
+                f"slow overlap={slow_overlaps[fast_index]:.5f}"
+            )
+            print(
+                "rho_2: "
+                f"M(0)={initial_resources[reference_index]:.5f}, "
+                f"slow overlap={slow_overlaps[reference_index]:.5f}"
+            )
+            assert initial_resources[fast_index] > initial_resources[reference_index]
+            assert slow_overlaps[fast_index] < slow_overlaps[reference_index]
+            """
+        ),
+        md(
+            r"""
+            ## 3. Relative-entropy relaxation
+
+            The two states evolve under the same CPTP semigroup. The initially
+            more nonstationary state has less weight in the slowest mode, so its
+            late-time relative entropy is smaller.
+            """
+        ),
+        code(
+            r"""
+            times = np.linspace(0, 400, 1_001)
+            states_1 = nu.evolve_density(L, rho_1, times)
+            states_2 = nu.evolve_density(L, rho_2, times)
+            resource_1 = np.asarray(
+                [nu.quantum_relative_entropy(state, pi) for state in states_1]
+            )
+            resource_2 = np.asarray(
+                [nu.quantum_relative_entropy(state, pi) for state in states_2]
+            )
+            tau = nu.crossing_time(times, resource_1, resource_2)
+            crossing_resource = np.interp(tau, times, resource_1)
+
+            assert np.isfinite(tau)
+            assert resource_1[0] > resource_2[0]
+            assert resource_1[-1] < resource_2[-1]
+            print(f"Crossing: t={tau:.3f}, kappa*t={KAPPA * tau:.3f}")
+            """
+        ),
+        code(
+            r"""
+            fig, ax = plt.subplots(figsize=(7.2, 4.2))
+            ax.semilogy(
+                KAPPA * times,
+                np.maximum(resource_1, 1e-15),
+                color=BLUE,
+                lw=2,
+                label=r"$\rho_1$ (low slow-mode overlap)",
+            )
+            ax.semilogy(
+                KAPPA * times,
+                np.maximum(resource_2, 1e-15),
+                color=ORANGE,
+                lw=2,
+                label=r"$\rho_2$ (high slow-mode overlap)",
+            )
+            ax.axvline(KAPPA * tau, color="0.35", ls=":", lw=1)
+            ax.scatter(
+                [KAPPA * tau],
+                [crossing_resource],
+                s=28,
+                color="0.15",
+                zorder=5,
+            )
+            ax.annotate(
+                fr"$\kappa t_\times={KAPPA * tau:.2f}$",
+                xy=(KAPPA * tau, crossing_resource),
+                xytext=(8, 12),
+                textcoords="offset points",
+                fontsize=9,
+            )
+            ax.set(
+                xlabel=r"$\kappa t$",
+                ylabel=r"$S(\rho_i(t)\Vert\pi)$",
+                xlim=(KAPPA * times[0], KAPPA * times[-1]),
+            )
+            ax.legend(loc="upper right", fontsize=9)
+            fig.tight_layout()
+            plt.show()
+            """
+        ),
+        md(
+            r"""
+            **Figure.** Relative entropy to the unique nonthermal stationary
+            state. The more resourceful blue state suppresses the slow mode and
+            overtakes the orange state at the marked crossing.
+
+            ## Result
+
+            Thermal equilibrium is not required for a Mpemba effect. Relative
+            entropy to a unique nonthermal stationary state is a nonstationarity
+            monotone, and suppressing the slow Liouvillian overlap reverses the
+            relaxation ordering. Here the crossing occurs at
+            \(\kappa t_\times\simeq1.43\). Every numerical input is constructed
+            above; the archived `FigS1_data.pkl` is not read.
+            """
+        ),
+    ],
+)
+
+
+write_notebook(
+    "Mpemba_ETH.ipynb",
+    [
+        md(
+            r"""
+            # Thermal Mpemba relaxation generated by an ETH spin-chain bath
+
+            **Paper companion.** Appendix B and Fig. S2 in the supplementary
+            numbering; Eqs. (B1)-(B5) and Fig. 15 in the published article.
+
+            A system qubit is weakly coupled to a nonintegrable \(N=15\) spin
+            chain and the full \(2^{16}\)-dimensional state evolves unitarily.
+            The reduced qubit nevertheless relaxes toward the same
+            negative-temperature Gibbs state from two different product states
+            and exhibits a thermal Mpemba crossing.
+
+            The public repository does not contain the two environment
+            eigenvectors used for the published finite-size trace. This
+            walkthrough therefore constructs deterministic narrow-energy ETH
+            states with a two-pass Lanczos filter and reports their energy
+            widths. It reproduces the crossing and its monotone dependence
+            without substituting an unrelated circuit model.
+
+            **Reproduction status.** Manuscript-scale sparse reconstruction. The
+            Hamiltonian, couplings, temperature, and \(2^{16}\)-dimensional
+            unitary evolution are exact; the two unarchived bath eigenvectors are
+            replaced by explicitly diagnosed narrow-energy ETH states.
+
+            **Reference.** A. Summer *et al.*, *Phys. Rev. X* **16**, 011065
+            (2026), [doi:10.1103/rbt4-psfd](https://doi.org/10.1103/rbt4-psfd).
+            """
+        ),
+        code(
+            COMMON_IMPORTS
+            + r"""
+import scipy.sparse as sp
+import scipy.sparse.linalg as sla
+"""
+        ),
+        md(
+            r"""
+            ## 1. Manuscript-scale ETH Hamiltonian
+
+            With \(s^\alpha=\sigma^\alpha/2\), the Hamiltonian is
+
+            $$
+            H_{se}=h_0s_0^z+\kappa X_0X_1+H_e,
+            $$
+
+            $$
+            H_e=J\sum_{n=1}^{N-1}s_n^zs_{n+1}^z
+                +h_1s_1^z+h_Ns_N^z
+                +\sum_{n=1}^{N}(h_zs_n^z+h_xs_n^x).
+            $$
+
+            The interface is written as \(\kappa X_0X_1\) to expose the
+            figure-generation normalization: its Pauli matrices are \(2s^x\).
+            Hiding this factor of four moves the crossing far outside the
+            published time scale.
+            """
+        ),
+        code(
+            r"""
+            N = 15
+            J = 1.0
+            H_Z = 0.3
+            H_X = 1.1
+            H_1 = 0.25
+            H_N = -0.25
+            KAPPA = 0.15
+            H_0 = 1.525
+            BETA = -0.46
+
+            bath_dimension = 2**N
+            basis = np.arange(bath_dimension, dtype=np.int64)
+            bits = (basis[:, None] >> np.arange(N)) & 1
+            z_values = 0.5 * (1 - 2 * bits)
+            diagonal = (
+                J * np.sum(z_values[:, :-1] * z_values[:, 1:], axis=1)
+                + H_Z * np.sum(z_values, axis=1)
+                + H_1 * z_values[:, 0]
+                + H_N * z_values[:, -1]
+            )
+
+            rows = [basis]
+            columns = [basis]
+            entries = [diagonal]
+            for site in range(N):
+                rows.append(basis)
+                columns.append(basis ^ (1 << site))
+                entries.append(np.full(bath_dimension, H_X / 2))
+
+            H_environment = sp.csr_matrix(
+                (
+                    np.concatenate(entries),
+                    (np.concatenate(rows), np.concatenate(columns)),
+                ),
+                shape=(bath_dimension, bath_dimension),
+            )
+            assert (H_environment - H_environment.T).nnz == 0
+            print(
+                f"Bath dimension={bath_dimension:,}; "
+                f"nonzeros={H_environment.nnz:,}"
+            )
+            """
+        ),
+        md(
+            r"""
+            ## 2. Negative-temperature energy-shell preparation
+
+            The paper chooses environment eigenstates \(|E_\theta\rangle\) so
+            both product states correspond to \(\beta=-0.46\). Exact interior
+            diagonalization at dimension \(32768\) requires a costly sparse LU,
+            and the eigenstate indices were not archived. We use a controlled
+            substitute: stochastic thermal typicality locates \(E(\beta)\), then
+            a Gaussian Lanczos filter prepares a state in a narrow shell around
+            that energy.
+
+            Set `USE_EXACT_INTERIOR_EIGENSTATES = True` to replace the filtered
+            state by SciPy shift-invert eigenvectors on a machine with sufficient
+            time and memory. The default is suitable for the repository runner.
+            """
+        ),
+        code(
+            r"""
+            def thermal_typical_energy(hamiltonian, beta, samples=4, seed=5):
+                rng = np.random.default_rng(seed)
+                estimates = []
+                scaled = (-beta / 2) * hamiltonian
+                trace_scaled = scaled.diagonal().sum()
+                for _ in range(samples):
+                    vector = rng.choice([-1.0, 1.0], hamiltonian.shape[0])
+                    vector /= la.norm(vector)
+                    thermal_vector = sla.expm_multiply(
+                        scaled, vector, traceA=trace_scaled
+                    )
+                    estimates.append(
+                        np.vdot(
+                            thermal_vector,
+                            hamiltonian @ thermal_vector,
+                        ).real
+                        / np.vdot(thermal_vector, thermal_vector).real
+                    )
+                return float(np.mean(estimates)), np.asarray(estimates)
+
+
+            def lanczos_energy_filter(
+                hamiltonian,
+                target,
+                *,
+                width=0.04,
+                steps=900,
+                seed,
+            ):
+                '''Apply exp[-(H-E)^2/(2 width^2)] in a Lanczos basis.'''
+                dimension = hamiltonian.shape[0]
+                initial = np.random.default_rng(seed).choice(
+                    [-1.0, 1.0], dimension
+                )
+                initial /= la.norm(initial)
+
+                alphas = []
+                betas = []
+                previous = np.zeros_like(initial)
+                current = initial.copy()
+                beta_previous = 0.0
+                for step in range(steps):
+                    residual = (
+                        hamiltonian @ current
+                        - beta_previous * previous
+                    )
+                    alpha = float(current @ residual)
+                    residual -= alpha * current
+                    beta_next = la.norm(residual)
+                    alphas.append(alpha)
+                    if step < steps - 1:
+                        betas.append(beta_next)
+                    previous, current = current, residual / beta_next
+                    beta_previous = beta_next
+
+                nodes, eigenvectors = la.eigh_tridiagonal(
+                    np.asarray(alphas), np.asarray(betas)
+                )
+                gaussian = np.exp(
+                    -0.5 * ((nodes - target) / width) ** 2
+                )
+                coefficients = eigenvectors @ (
+                    gaussian * eigenvectors[0]
+                )
+
+                previous = np.zeros_like(initial)
+                current = initial.copy()
+                beta_previous = 0.0
+                filtered = np.zeros_like(initial)
+                for step in range(steps):
+                    filtered += coefficients[step] * current
+                    residual = (
+                        hamiltonian @ current
+                        - beta_previous * previous
+                        - alphas[step] * current
+                    )
+                    if step < steps - 1:
+                        previous, current = (
+                            current,
+                            residual / betas[step],
+                        )
+                        beta_previous = betas[step]
+
+                filtered /= la.norm(filtered)
+                mean_energy = np.vdot(
+                    filtered, hamiltonian @ filtered
+                ).real
+                energy_width = la.norm(
+                    hamiltonian @ filtered - mean_energy * filtered
+                )
+                return filtered, mean_energy, float(energy_width)
+
+
+            def exact_interior_eigenstate(hamiltonian, target):
+                value, vector = sla.eigsh(
+                    hamiltonian,
+                    k=1,
+                    sigma=target,
+                    which="LM",
+                    tol=1e-10,
+                )
+                return vector[:, 0], float(value[0]), 0.0
+
+
+            bath_energy_beta, typicality_samples = thermal_typical_energy(
+                H_environment, BETA
+            )
+            target_1 = bath_energy_beta
+            target_2 = bath_energy_beta + H_0 / 2
+            USE_EXACT_INTERIOR_EIGENSTATES = False
+            state_builder = (
+                exact_interior_eigenstate
+                if USE_EXACT_INTERIOR_EIGENSTATES
+                else lanczos_energy_filter
+            )
+            environment_1, energy_1, width_1 = state_builder(
+                H_environment, target_1, seed=11
+            ) if not USE_EXACT_INTERIOR_EIGENSTATES else state_builder(
+                H_environment, target_1
+            )
+            environment_2, energy_2, width_2 = state_builder(
+                H_environment, target_2, seed=29
+            ) if not USE_EXACT_INTERIOR_EIGENSTATES else state_builder(
+                H_environment, target_2
+            )
+
+            print("Thermal-typicality samples:", typicality_samples)
+            print(
+                f"|E1>: <H_e>={energy_1:.6f}, "
+                f"Delta E={width_1:.6f}"
+            )
+            print(
+                f"|E2>: <H_e>={energy_2:.6f}, "
+                f"Delta E={width_2:.6f}"
+            )
+            assert width_1 < 0.05 and width_2 < 0.05
+            """
+        ),
+        md(
+            r"""
+            ## 3. Full \(2^{16}\)-dimensional unitary evolution
+
+            We use \(|\phi_1\rangle=|+\rangle\) and
+            \(|\phi_2\rangle=|0\rangle\), where \(|0\rangle\) is the
+            lower-energy eigenstate of \(H_s\). Because
+            \(\langle0|H_s|0\rangle=-h_0/2\), shifting the second bath shell by
+            \(h_0/2\) matches the two total energies. The time evolution itself
+            is not reduced or Markovian: `expm_multiply` acts on the full sparse
+            Hamiltonian before the environment is traced out.
+            """
+        ),
+        code(
+            r"""
+            identity_system = sp.eye(2, format="csr")
+            identity_environment = sp.eye(
+                bath_dimension, format="csr"
+            )
+            system_z = sp.diags([-0.5, 0.5], format="csr")
+            pauli_x = sp.csr_matrix([[0.0, 1.0], [1.0, 0.0]])
+            boundary_x = sp.csr_matrix(
+                (
+                    np.ones(bath_dimension),
+                    (basis, basis ^ 1),
+                ),
+                shape=(bath_dimension, bath_dimension),
+            )
+            H_system = H_0 * system_z.toarray()
+            H_total = (
+                sp.kron(H_0 * system_z, identity_environment)
+                + sp.kron(identity_system, H_environment)
+                + KAPPA * sp.kron(pauli_x, boundary_x)
+            ).tocsr()
+
+            plus = np.array([1.0, 1.0]) / np.sqrt(2)
+            zero = np.array([1.0, 0.0])
+            initial_1 = np.kron(plus, environment_1).astype(complex)
+            initial_2 = np.kron(zero, environment_2).astype(complex)
+            total_energies = [
+                np.vdot(state, H_total @ state).real
+                for state in (initial_1, initial_2)
+            ]
+            print("Matched total energies:", total_energies)
+            print(
+                "Energy mismatch:",
+                abs(total_energies[0] - total_energies[1]),
+            )
+
+            times = np.linspace(0, 100, 301)
+
+            def reduced_trajectory(initial_state, chunk_size=25):
+                state = initial_state
+                matrix = state.reshape(2, bath_dimension)
+                reduced = [matrix @ matrix.conj().T]
+                trace_generator = -1j * H_total.diagonal().sum()
+                for start in range(0, len(times) - 1, chunk_size):
+                    stop = min(start + chunk_size, len(times) - 1)
+                    block = sla.expm_multiply(
+                        -1j * H_total,
+                        state,
+                        start=0,
+                        stop=times[stop] - times[start],
+                        num=stop - start + 1,
+                        endpoint=True,
+                        traceA=trace_generator,
+                    )
+                    for evolved in block[1:]:
+                        matrix = evolved.reshape(2, bath_dimension)
+                        reduced.append(matrix @ matrix.conj().T)
+                    state = block[-1]
+                return np.asarray(
+                    [nu.normalize_density(state) for state in reduced]
+                )
+
+            reduced_1 = reduced_trajectory(initial_1)
+            reduced_2 = reduced_trajectory(initial_2)
+            assert len(reduced_1) == len(times)
+            for trajectory in (reduced_1, reduced_2):
+                assert np.allclose(
+                    np.trace(trajectory, axis1=1, axis2=2), 1
+                )
+            """
+        ),
+        md(
+            r"""
+            ## 4. Relative-entropy and Rényi crossing times
+
+            The target is the single-qubit Gibbs state
+            \(\pi_\beta=e^{-\beta H_s}/Z\). Small revivals are expected because
+            a finite bath induces a non-Markovian reduced map.
+            """
+        ),
+        code(
+            r"""
+            pi_beta = nu.gibbs_state(H_system, BETA)
+            relative_1 = np.asarray(
+                [
+                    nu.quantum_relative_entropy(state, pi_beta)
+                    for state in reduced_1
+                ]
+            )
+            relative_2 = np.asarray(
+                [
+                    nu.quantum_relative_entropy(state, pi_beta)
+                    for state in reduced_2
+                ]
+            )
+            tau_relative = nu.crossing_time(
+                times, relative_2, relative_1
+            )
+            crossing_resource = np.interp(
+                tau_relative, times, relative_1
+            )
+            assert np.isfinite(tau_relative)
+            print(f"Relative-entropy crossing: J*t={tau_relative:.3f}")
+
+            alphas = np.linspace(0.1, 2.0, 12)
+            alpha_crossings = []
+            for alpha in alphas:
+                curve_1 = np.asarray(
+                    [
+                        nu.petz_renyi(state, pi_beta, alpha)
+                        for state in reduced_1
+                    ]
+                )
+                curve_2 = np.asarray(
+                    [
+                        nu.petz_renyi(state, pi_beta, alpha)
+                        for state in reduced_2
+                    ]
+                )
+                alpha_crossings.append(
+                    nu.crossing_time(times, curve_2, curve_1)
+                )
+            alpha_crossings = np.asarray(alpha_crossings)
+            print("alpha crossing times:")
+            print(np.column_stack([alphas, alpha_crossings]))
+            """
+        ),
+        code(
+            r"""
+            fig, ax = plt.subplots(figsize=(7.2, 4.5))
+            ax.semilogy(
+                times,
+                np.maximum(relative_1, 1e-12),
+                color=PURPLE,
+                lw=1.8,
+                label=r"$|+\rangle_s\otimes|E_1\rangle_e$",
+            )
+            ax.semilogy(
+                times,
+                np.maximum(relative_2, 1e-12),
+                color=PURPLE,
+                lw=1.8,
+                ls="--",
+                label=r"$|0\rangle_s\otimes|E_2\rangle_e$",
+            )
+            ax.axvline(tau_relative, color="0.35", ls=":", lw=1)
+            ax.scatter(
+                [tau_relative],
+                [crossing_resource],
+                s=28,
+                color="0.15",
+                zorder=5,
+            )
+            ax.annotate(
+                fr"$Jt_\times={tau_relative:.1f}$",
+                xy=(tau_relative, crossing_resource),
+                xytext=(8, 11),
+                textcoords="offset points",
+                fontsize=9,
+            )
+            ax.set(
+                xlabel=r"$Jt$",
+                ylabel=r"$S(\rho_\theta(t)\Vert\pi_\beta)$",
+                xlim=(times[0], times[-1]),
+            )
+            ax.legend(loc="lower left", fontsize=9)
+
+            inset = ax.inset_axes([0.59, 0.57, 0.36, 0.34])
+            inset.set_facecolor("white")
+            finite = np.isfinite(alpha_crossings)
+            inset.plot(
+                alphas[finite],
+                alpha_crossings[finite],
+                color=ORANGE,
+                marker="o",
+                ms=3,
+            )
+            inset.set(xlabel=r"$\alpha$", ylabel=r"$\tau_\alpha$")
+            inset.tick_params(labelsize=8)
+            fig.tight_layout()
+            plt.show()
+            """
+        ),
+        md(
+            r"""
+            **Figure.** Reduced-state athermality under the same global unitary
+            evolution. The inset shows that the crossing time depends
+            systematically on the Rényi parameter.
+
+            ## Result and numerical scope
+
+            Unitary dynamics of the full system can induce a thermal Mpemba
+            effect in a subsystem. The calculation keeps the manuscript size
+            \(N=15\), all seven quoted couplings, \(\beta=-0.46\), and the full
+            sparse state vector. The relative-entropy curves cross at
+            \(Jt_\times\simeq14.66\). The reported energy widths
+            \(\Delta E\simeq0.029\) distinguish this reproducible ETH
+            reconstruction from the unarchived exact eigenvectors used for the
+            published finite-size trace.
+            """
+        ),
+    ],
+)
+
+
+write_notebook(
+    "Mpemba_QFI_monotone.ipynb",
+    [
+        md(
+            r"""
+            # Monotone-dependent Mpemba crossings from quantum Fisher information
+
+            **Paper companion.** Appendix D and Fig. S3 in the supplementary
+            numbering; Appendix F, Eqs. (F1)-(F3), and Fig. 17 in the published
+            article.
+
+            This notebook reconstructs the single-qubit Davies map and evaluates
+            three metric-adjusted quantum Fisher informations (QFIs): symmetric
+            logarithmic derivative (SLD), Wigner-Yanase (WY), and harmonic mean
+            (HM). The same isospectral state pair crosses for SLD and WY but not
+            for HM.
+
+            **Reproduction status.** Exact reconstruction from the printed model
+            and parameters; no external data are required.
+
+            **Reference.** A. Summer *et al.*, *Phys. Rev. X* **16**, 011065
+            (2026), [doi:10.1103/rbt4-psfd](https://doi.org/10.1103/rbt4-psfd).
+            """
+        ),
+        code(COMMON_IMPORTS),
+        md(
+            r"""
+            ## 1. Davies dynamics and isospectral initial states
+
+            The parameters are exactly those of Fig. S3:
+
+            $$
+            (r_x,r_y,r_z)=(0.75,0,0.19),\quad
+            \beta=0.1,\quad\gamma=J=1,\quad\omega=5.
+            $$
+
+            The coherent state
+            \(\rho=\tfrac12(I+\mathbf r\cdot\boldsymbol\sigma)\) is rotated to
+            an isospectral state \(\rho'\) diagonal in the energy basis. The
+            larger eigenvalue is assigned to the negative-temperature-favoured
+            high-energy level, matching the figure convention.
+            """
+        ),
+        code(
+            r"""
+            J = 1.0
+            BETA = 0.1
+            GAMMA = 1.0
+            OMEGA = 5.0
+            RX, RY, RZ = 0.75, 0.0, 0.19
+
+            H = (OMEGA / 2) * nu.Z
+            energies, energy_basis = la.eigh(H)
+            gap = energies[1] - energies[0]
+            occupation = 1 / np.expm1(BETA * gap)
+            lower = energy_basis[:, 0]
+            upper = energy_basis[:, 1]
+            collapse_operators = [
+                np.sqrt(GAMMA * (1 + occupation))
+                * np.outer(lower, upper.conj()),
+                np.sqrt(GAMMA * occupation)
+                * np.outer(upper, lower.conj()),
+            ]
+            L = nu.lindblad_liouvillian(H, collapse_operators)
+            pi_beta = nu.gibbs_state(H, BETA)
+
+            rho = 0.5 * (
+                nu.I2 + RX * nu.X + RY * nu.Y + RZ * nu.Z
+            )
+            spectrum = la.eigvalsh(rho)
+            rho_incoherent = np.diag(spectrum[::-1]).astype(complex)
+
+            nu.validate_density(rho)
+            nu.validate_density(rho_incoherent)
+            assert np.allclose(
+                la.eigvalsh(rho), la.eigvalsh(rho_incoherent)
+            )
+            assert la.norm(L @ nu.vec(pi_beta)) < 1e-10
+            print("Shared initial spectrum:", spectrum)
+            print("Thermal state:", np.diag(pi_beta))
+            """
+        ),
+        md(
+            r"""
+            ## 2. Metric-adjusted quantum Fisher information
+
+            For \(\rho_t=\sum_xp_x|x\rangle\langle x|\),
+
+            $$
+            I_f(t)=\sum_{x,y}
+            \frac{|\langle x|\mathcal L[\rho_t]|y\rangle|^2}
+                 {p_x f(p_y/p_x)}.
+            $$
+
+            We compare
+
+            $$
+            f_{\rm SLD}(x)=\frac{x+1}{2},\qquad
+            f_{\rm WY}(x)=\frac{(1+\sqrt{x})^2}{4},\qquad
+            f_{\rm HM}(x)=\frac{2x}{x+1}.
+            $$
+            """
+        ),
+        code(
+            r"""
+            qfi_functions = {
+                "SLD": lambda x: (x + 1) / 2,
+                "WY": lambda x: (1 + np.sqrt(x)) ** 2 / 4,
+                "HM": lambda x: 2 * x / (x + 1),
+            }
+            colors = {"SLD": BLUE, "WY": ORANGE, "HM": GREEN}
+
+            times = np.linspace(0, 0.4, 500)
+            coherent_states = nu.evolve_density(L, rho, times)
+            incoherent_states = nu.evolve_density(
+                L, rho_incoherent, times
+            )
+
+            coherent_qfi = {}
+            incoherent_qfi = {}
+            for name, function in qfi_functions.items():
+                coherent_qfi[name] = np.asarray(
+                    [
+                        nu.metric_adjusted_qfi(state, L, function)
+                        for state in coherent_states
+                    ]
+                )
+                incoherent_qfi[name] = np.asarray(
+                    [
+                        nu.metric_adjusted_qfi(state, L, function)
+                        for state in incoherent_states
+                    ]
+                )
+
+            assert np.allclose(
+                incoherent_qfi["SLD"],
+                incoherent_qfi["WY"],
+                atol=1e-9,
+            )
+            assert np.allclose(
+                incoherent_qfi["SLD"],
+                incoherent_qfi["HM"],
+                atol=1e-9,
+            )
+            """
+        ),
+        md(
+            r"""
+            ## 3. Monotone-resolved crossing audit
+
+            The incoherent trajectory is \(f\)-independent because population
+            and coherence blocks decouple. It starts above the coherent SLD and
+            WY curves, then falls below them. HM orders the states differently
+            already at \(t=0\), and no ordering reversal occurs.
+            """
+        ),
+        code(
+            r"""
+            crossing_times = {}
+            for name in qfi_functions:
+                crossing_times[name] = nu.crossing_time(
+                    times,
+                    incoherent_qfi[name],
+                    coherent_qfi[name],
+                )
+                reverse_crossing = nu.crossing_time(
+                    times,
+                    coherent_qfi[name],
+                    incoherent_qfi[name],
+                )
+                print(
+                    f"{name}: forward={crossing_times[name]}, "
+                    f"reverse={reverse_crossing}"
+                )
+
+            assert np.isfinite(crossing_times["SLD"])
+            assert np.isfinite(crossing_times["WY"])
+            assert np.isnan(crossing_times["HM"])
+            """
+        ),
+        code(
+            r"""
+            fig, ax = plt.subplots(figsize=(7.2, 4.2))
+            for name in qfi_functions:
+                ax.semilogy(
+                    times,
+                    coherent_qfi[name],
+                    color=colors[name],
+                    lw=2,
+                    label=fr"$f={name}$, coherent $\rho$",
+                )
+            ax.semilogy(
+                times,
+                incoherent_qfi["SLD"],
+                color="0.15",
+                lw=2,
+                ls="--",
+                label=r"incoherent $\rho'$ (all $f$)",
+            )
+            for name in ("SLD", "WY"):
+                crossing_qfi = np.interp(
+                    crossing_times[name],
+                    times,
+                    coherent_qfi[name],
+                )
+                ax.axvline(
+                    crossing_times[name],
+                    color=colors[name],
+                    ls=":",
+                    lw=1,
+                )
+                ax.scatter(
+                    [crossing_times[name]],
+                    [crossing_qfi],
+                    s=24,
+                    color=colors[name],
+                    edgecolor="white",
+                    linewidth=0.6,
+                    zorder=5,
+                )
+            ax.set(
+                xlabel=r"$Jt$",
+                ylabel=r"$I_f$",
+                xlim=(times[0], times[-1]),
+            )
+            ax.legend(fontsize=8.5)
+            fig.tight_layout()
+            plt.show()
+            """
+        ),
+        md(
+            r"""
+            **Figure.** Metric-adjusted QFI along the same two Davies
+            trajectories. Dotted guides mark the SLD and WY crossings; the HM
+            ordering never reverses.
+
+            ## Result
+
+            A Mpemba effect is a statement about a dynamics, a state pair, and a
+            chosen resource monotone. SLD and WY detect ordering reversals at
+            \(Jt_\times\simeq0.0483\) and \(0.0352\), respectively, while HM
+            detects none for the same physical trajectories. This exact
+            reconstruction supersedes the exploratory notebook archived under
+            `asymmetry_and_mpemba/fig_s3/`.
+            """
+        ),
+    ],
+)
+
+
 # The circuit walkthroughs have their own data-backed builder.  Run it last so
 # the executed NPZ analyses supersede the early exploratory versions above.
 from build_circuit_notebooks import build_all as build_circuit_notebooks
 
-build_circuit_notebooks()
-print("Wrote 10 publishable notebooks.")
+CIRCUIT_NOTEBOOKS = {
+    "asymm_ex4.ipynb",
+    "asymm_ex4.1.a.ipynb",
+    "asymm_ex5.ipynb",
+}
+if not REQUESTED_NOTEBOOKS or REQUESTED_NOTEBOOKS & CIRCUIT_NOTEBOOKS:
+    build_circuit_notebooks()
+
+if REQUESTED_NOTEBOOKS:
+    missing = REQUESTED_NOTEBOOKS - set(WRITTEN_NOTEBOOKS) - CIRCUIT_NOTEBOOKS
+    if missing:
+        raise ValueError(f"Unknown notebook filename(s): {sorted(missing)}")
+print("Wrote publishable notebooks.")

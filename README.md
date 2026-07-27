@@ -1,4 +1,4 @@
-# Resource-Theoretical Unification of Mpemba Effects
+# 🧊 Resource-Theoretical Unification of Mpemba Effects
 
 Notebooks accompanying:
 
@@ -17,9 +17,9 @@ Notebooks accompanying:
 loses its resource faster, causing the resource monotones to cross.*
 
 
-## Main contributions
+## 🎯 Main contributions
 
-- **One resource-theoretic framework for different Mpemba effects.**
+- **🧩 One resource-theoretic framework for different Mpemba effects.**
   Free states and free operations determine which resource is dissipated during
   relaxation. Nonequilibrium free energy is expressed through relative entropy
   to the thermal state, while the relative entropy of asymmetry measures
@@ -30,36 +30,47 @@ loses its resource faster, causing the resource monotones to cross.*
   [Sec. IV](https://arxiv.org/html/2507.16976#S4) ·
   [Walkthrough](asymm_ex6.ipynb)
 
-- **A common spectral mechanism to the thermal Mpemba effect.**
+- **📉 A common spectral mechanism to the thermal Mpemba effect.**
   We show that anomalous relaxation is governed by the initial state’s overlap with the eigenmodes of the dissipative map-a mechanism that has been recognised only in the thermal and nonstationary Mpemba effect by [Nava and Fabrizio](https://doi.org/10.1103/PhysRevB.100.125102) and [Carollo, Lasanta, and Lesanovsky](https://doi.org/10.1103/PhysRevLett.127.060401), a strongly symmetry-broken state can relax faster when its overlap with the   slowest symmetry-restoring mode is small or vanishes.
   [Manuscript: Sec. II](https://arxiv.org/html/2507.16976#S2) ·
   [Sec. III.3](https://arxiv.org/html/2507.16976#S3.SS3) ·
   [Thermal walkthrough](atherm_ex1.ipynb) ·
   [Symmetry-mode walkthrough](asymmetry_modes_example.ipynb)
 
-- **The symmetry Mpemba effect is not inherently quantum.**
+- **⚖️ The symmetry Mpemba effect is not inherently quantum.**
   It already occurs in classical Markovian systems. Entanglement can accompany particular realizations, but it is not required for the effect.
   [Manuscript: Sec. III.4](https://arxiv.org/html/2507.16976#S3.SS4) ·
   [Walkthrough](asymm_ex1.ipynb)
 
-- **Random circuits reveal the role of modes of asymmetry.**
+- **🎲 Random circuits reveal the role of modes of asymmetry.**
   In symmetry-preserving circuits, different charge modes decay at different rates. More strongly tilted initial states tend to populate Hilbert-space sectors statistically associated with faster-decaying eigenmodes, providing a mode-resolved explanation for their faster symmetry restoration.
   [Manuscript: Sec. III.7](https://arxiv.org/html/2507.16976#S3.SS7) ·
   [Markovian U(1)](asymm_ex4.ipynb) ·
   [Non-Markovian U(1)](asymm_ex4.1.a.ipynb) ·
   [Non-Abelian SU(2)](asymm_ex5.ipynb)
 
-## Repository contents
+## 📁 Repository contents
 
-The top-level notebooks are designed as readable walkthroughs of the examples in
-the paper. Each notebook introduces the resource and dynamics, verifies the
-relevant structural properties, and then tests the corresponding Mpemba
-crossing. The SU(2) notebook recomputes the five Fig. 11 curves from 100 raw
-full-SU(2) circuit realizations and reproduces all ten pairwise crossings.
-It verifies covariance under \(S_x,S_y,S_z\) and uses the exact non-Abelian
-Haar twirl; the digitized figure coordinates appear only as an independent
-validation target.
+The thirteen top-level notebooks are publication-oriented walkthroughs of the
+main-text and appendix examples. Each identifies its manuscript location and
+reproduction status, constructs the model, verifies the relevant structural
+properties, and only then tests the Mpemba crossing. The SU(2) notebook
+recomputes the five Fig. 11 curves from 100 raw full-SU(2) circuit realizations
+and reproduces all ten pairwise crossings. It verifies covariance under
+\(S_x,S_y,S_z\) and uses the exact non-Abelian Haar twirl.
 
+### Appendix companions
+
+- [`Mpemba_nonstatioinarity.ipynb`](Mpemba_nonstatioinarity.ipynb) —
+  independent reconstruction of the Appendix A nonstationarity example. Both
+  initial states are generated transparently; no pickle or stored trajectory is
+  used.
+- [`Mpemba_ETH.ipynb`](Mpemba_ETH.ipynb) — manuscript-scale Appendix B
+  calculation for an \(N=15\) ETH bath, including the full sparse
+  \(2^{16}\)-dimensional unitary evolution and Rényi crossing-time inset.
+- [`Mpemba_QFI_monotone.ipynb`](Mpemba_QFI_monotone.ipynb) — exact Appendix
+  QFI reconstruction showing crossings for SLD and Wigner-Yanase metrics but
+  no crossing for the harmonic-mean metric.
 - [`NOTEBOOKS.md`](NOTEBOOKS.md) gives the recommended reading order and maps
   every notebook to the relevant manuscript section and figure.
 - [`asymmetry_and_mpemba/`](asymmetry_and_mpemba/) contains the original manuscript-analysis material and figure-generation code.
@@ -68,7 +79,7 @@ validation target.
 - [`data/circuit_examples/`](data/circuit_examples/) contains raw, per-realization circuit data rather than fitted or illustrative curves.
 - [`tools/`](tools/) contains notebook builders, data generators, and the top-to-bottom execution check.
 
-## Running the notebooks
+## ▶️ Running the notebooks
 
 The notebooks require Python 3 with NumPy, SciPy, Matplotlib, `nbformat`, and `nbclient`. Run commands from the repository root.
 
@@ -76,6 +87,15 @@ To execute every notebook and refresh its stored outputs:
 
 ```bash
 python tools/execute_notebooks.py
+```
+
+To rebuild and execute only the appendix companions:
+
+```bash
+python tools/build_publishable_notebooks.py \
+  Mpemba_nonstatioinarity.ipynb Mpemba_ETH.ipynb Mpemba_QFI_monotone.ipynb
+python tools/execute_notebooks.py \
+  Mpemba_nonstatioinarity.ipynb Mpemba_ETH.ipynb Mpemba_QFI_monotone.ipynb
 ```
 
 To rebuild the publishable notebooks, regenerate the standard circuit datasets, and execute everything:
@@ -97,7 +117,7 @@ python tools/generate_circuit_data.py \
 The generator verifies the upstream parameter file by SHA-256 before running.
 Adding `--paper-scale` requests the full 100-circuit, 1000-layer Fig. 10 calculation and should be used only on suitable HPC resources.
 
-## Circuit-data scope
+## 📊 Circuit-data scope
 
 The stored data are deliberately explicit about their statistical scope:
 
@@ -113,7 +133,7 @@ The stored data are deliberately explicit about their statistical scope:
 
 Reduced local ensembles are never presented as replacements for the 100-realization manuscript averages.
 
-## Citation
+## 📚 Citation
 
 ```bibtex
 @article{Summer2026Mpemba,
