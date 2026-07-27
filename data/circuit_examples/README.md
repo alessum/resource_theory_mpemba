@@ -1,8 +1,9 @@
 # Circuit datasets
 
 These files are the raw inputs of `asymm_ex4.ipynb`,
-`asymm_ex4.1.a.ipynb`, and `asymm_ex5.ipynb`. Regenerate them from the
-repository root with:
+`asymm_ex4.1.a.ipynb`, and `asymm_ex5.ipynb`, which reproduce Figs. 9, 10,
+and 11 of *Resource-Theoretical Unification of Mpemba Effects: Classical and
+Quantum* respectively. Regenerate them from the repository root with:
 
 ```bash
 python tools/generate_circuit_data.py
@@ -11,6 +12,15 @@ python tools/generate_circuit_data.py
 Every NPZ is pickle-free and contains the monotone value for every circuit
 realization, initial state, and sampled time. Ensemble means and uncertainty
 bands are computed in the notebooks, not stored as preprocessed curves.
+
+File ↔ figure map:
+
+| Figure | File | Notebook |
+|---|---|---|
+| Fig. 9 | `u1_markovian.npz` | `asymm_ex4.ipynb` |
+| Fig. 10 | `u1_nonmarkovian.npz`, `u1_nonmarkovian_reference.npz` | `asymm_ex4.1.a.ipynb` |
+| Fig. 11 | `su2_fig11_full_su2.npz`, `su2_fig11_vector_reference.csv` | `asymm_ex5.ipynb` |
+| Fig. 11 (methodology check) | `su2_nonmarkovian.npz` | `asymm_ex5.ipynb` |
 
 ## Files
 
@@ -29,13 +39,14 @@ bands are computed in the notebooks, not stored as preprocessed curves.
   `5042f3600a5b14c93b515e0bd0dab0e8fa4d5509` plus the SHA-256 of
   `data/U1_rnd_parameters.npy`. It is a fidelity check at the exact system
   size, not a substitute for the 100-circuit production average.
-- `su2_nonmarkovian.npz`: Eq. (79)-consistent protocol at the manuscript
-  Hilbert-space size (`Ns=8`, `Ne=12`, 100 layers) for three circuits. Each value uses the
-  exact SU(2) Schur-basis twirl. New runs build that basis with
+- `su2_nonmarkovian.npz`: three-circuit, Eq. (79)-consistent methodology check
+  at the manuscript Hilbert-space size (`Ns=8`, `Ne=12`, 100 layers). Each
+  value uses the exact SU(2) Schur-basis twirl built with
   `tools/build_cg_basis.py`, following the manual block recursion and column
-  ordering of the original notebooks. The manuscript ensemble contains 100 circuits.
-  This legacy file follows Eq. (79) in natural-log units and is now described
-  as a reduced validation run, not as a reproduction of the published curve.
+  ordering of the original notebooks. It is a low-cost sanity check for the
+  Fig. 11 pipeline in natural-log units; the manuscript reproduction of the
+  five Fig. 11 curves and all ten crossings is the 100-realization run stored
+  in `su2_fig11_full_su2.npz` below.
 - `su2_fig11_full_su2.npz`: the Fig. 11 reproduction at the manuscript
   Hilbert-space and ensemble size (`Ns=8`, `Ne=12`, 100 circuits, 501
   Floquet layers). It stores raw per-realization trajectories and all
@@ -57,11 +68,15 @@ bands are computed in the notebooks, not stored as preprocessed curves.
   of the independently generated full-SU(2) ensemble.
 
 The public [`alessum/mpemba_circuits`](https://github.com/alessum/mpemba_circuits)
-history confirms that `gen_su2` constructs SU(2)-invariant partial-SWAP gates.
-It does not contain a reproducible Fig. 11 run: the committed runner selects
-U(1), its dormant SU(2) path and coupling law do not match the caption, its
-initial state and environment do not match Eq. (79), and no SU(2) parameter
-table or raw SU(2) result is stored there.
+history confirms that `gen_su2` constructs SU(2)-invariant partial-SWAP gates,
+but it does not contain a reproducible Fig. 11 run: the committed runner
+selects U(1), its dormant SU(2) path and coupling law do not match the
+caption, its initial state and environment do not match Eq. (79), and no
+SU(2) parameter table or raw SU(2) result is stored there. This repository
+closes that gap: `su2_fig11_full_su2.npz` together with `asymm_ex5.ipynb`
+regenerate the five Fig. 11 curves and all ten crossings at the manuscript
+Hilbert-space and ensemble size, entirely from the isotropic-coupling
+protocol and the exact SU(2) Schur-basis twirl.
 
 Verify the manuscript-era CG basis without writing the basis matrix:
 
