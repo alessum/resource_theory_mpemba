@@ -63,8 +63,8 @@ validation target.
 - [`NOTEBOOKS.md`](NOTEBOOKS.md) gives the recommended reading order and maps
   every notebook to the relevant manuscript section and figure.
 - [`asymmetry_and_mpemba/`](asymmetry_and_mpemba/) contains the original manuscript-analysis material and figure-generation code.
-- [`notebook_utils.py`](notebook_utils.py) contains shared numerical routines.
-- [`circuit_data.py`](circuit_data.py) implements the reproducible random-circuit simulations.
+- [`tools/notebook_utils.py`](tools/notebook_utils.py) contains shared numerical routines.
+- [`tools/circuit_data.py`](tools/circuit_data.py) implements the reproducible random-circuit simulations.
 - [`data/circuit_examples/`](data/circuit_examples/) contains raw, per-realization circuit data rather than fitted or illustrative curves.
 - [`tools/`](tools/) contains notebook builders, data generators, and the top-to-bottom execution check.
 

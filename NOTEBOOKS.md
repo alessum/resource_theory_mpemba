@@ -23,7 +23,7 @@ an illustrative curve.
 ## Running the notebooks
 
 The notebooks use Python 3 with NumPy, SciPy, and Matplotlib. Run them from the
-repository root so that they can import [`notebook_utils.py`](notebook_utils.py).
+repository root so that they can import [`tools/notebook_utils.py`](tools/notebook_utils.py).
 Every notebook has stored outputs from a clean top-to-bottom execution.
 
 The circuit notebooks consume raw per-realization arrays in
@@ -43,7 +43,7 @@ reference is never used as simulation input.
 
 ## Maintenance
 
-Shared numerical routines live in [`notebook_utils.py`](notebook_utils.py), keeping
+Shared numerical routines live in [`tools/notebook_utils.py`](tools/notebook_utils.py), keeping
 the notebooks focused on the physics. To regenerate and execute all notebooks:
 
 ```bash

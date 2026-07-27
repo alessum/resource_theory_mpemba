@@ -3,7 +3,6 @@ import scipy.linalg as la
 from scipy.special import binom
 from numba import njit, prange
 from collections import defaultdict
-import mplcursors
 from scipy.linalg import logm
 
 
@@ -38,6 +37,8 @@ def attach_matrix_cursor(im, Z, label, hover=False, highlight=True):
     Returns:
       the mplcursors.Cursor object (in case you want to keep a handle/reference)
     """
+    import mplcursors  # optional, interactive-only dependency
+
     cursor = mplcursors.cursor(
         im,
         hover=hover,

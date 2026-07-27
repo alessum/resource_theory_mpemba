@@ -3,6 +3,10 @@
 The notebooks are generated from plain Python strings so their structure,
 metadata, and presentation stay consistent.  Execute this script from the
 repository root after editing notebook prose or code below.
+
+This file is a script, not a library: importing it would clobber the ten
+top-level notebooks with source-only versions (no stored outputs). The guard
+below turns any import attempt into an explicit error.
 """
 
 from __future__ import annotations
@@ -11,6 +15,14 @@ from pathlib import Path
 from textwrap import dedent
 
 import nbformat as nbf
+
+
+if __name__ != "__main__":
+    raise ImportError(
+        "tools/build_publishable_notebooks.py is a script; run it as "
+        "`python tools/build_publishable_notebooks.py`, do not import it "
+        "(importing would regenerate every top-level notebook without outputs)."
+    )
 
 
 ROOT = Path(__file__).resolve().parents[1]
