@@ -1452,11 +1452,11 @@ def build_su2_nonmarkovian() -> None:
             ),
             md(
                 r"""
-                ## 3. Irreducible-tensor contraction: Eq. (3.12)
+                ## 3. Irreducible-tensor contraction: Eq. (3.10)
 
                 Marvian and Spekkens show that an SU(2)-covariant positive
                 trace-preserving map acts independently on irreducible tensor
-                ranks. Their Eq. (3.12) bounds the corresponding transfer
+                ranks. Their Eq. (3.10) bounds the corresponding transfer
                 coefficient by
 
                 $$
@@ -1481,56 +1481,52 @@ def build_su2_nonmarkovian() -> None:
                 The eight-qubit production system carries a reducible SU(2)
                 representation with multiplicities. Its transfer coefficients
                 are therefore the matrices \(c^{(\mu)}_{\beta\alpha}\) in
-                Eq. (3.10), rather than the multiplicity-free scalar in
-                Eq. (3.12). The one-spin dilation below deliberately isolates
-                the scalar case so that Eq. (3.12) can be tested without
-                discarding multiplicity information from the production
-                calculation.
+                Eq. (3.10).
 
                 Reference: [Marvian and Spekkens, arXiv:1312.0680,
-                Eq. (3.12)](https://arxiv.org/pdf/1312.0680).
+                Eq. (3.10)](https://arxiv.org/pdf/1312.0680).
                 """
             ),
             code(
                 r"""
-                eq312_n_system = 1
-                eq312_n_environment = 2
-                eq312_n_total = (
-                    eq312_n_system + eq312_n_environment
+                eq310_n_system = 1
+                eq310_n_environment = 2
+                eq310_n_total = (
+                    eq310_n_system + eq310_n_environment
                 )
-                eq312_environment_ket = nu.singlet_product(
-                    eq312_n_environment
+                eq310_environment_ket = nu.singlet_product(
+                    eq310_n_environment
                 )
-                eq312_environment = np.outer(
-                    eq312_environment_ket,
-                    eq312_environment_ket.conj(),
+                eq310_environment = np.outer(
+                    eq310_environment_ket,
+                    eq310_environment_ket.conj(),
                 )
-                eq312_couplings = np.asarray(
-                    data["couplings"][0, :eq312_n_total]
+                eq310_couplings = np.asarray(
+                    data["couplings"][0, :eq310_n_total]
                 )
 
-                eq312_unitary = np.eye(
-                    2**eq312_n_total, dtype=complex
+                eq310_unitary = np.eye(
+                    2**eq310_n_total, dtype=complex
                 )
-                eq312_pairs = [(0, 1), (1, 2), (2, 0)]
+                eq310_pairs = [(0, 1), (1, 2), (2, 0)]
                 for coupling, sites in zip(
-                    eq312_couplings,
-                    eq312_pairs,
+                    eq310_couplings,
+                    eq310_pairs,
                 ):
-                    eq312_unitary = (
+                    eq310_unitary = (
                         nu.embed_two_qubit_gate(
                             nu.su2_gate(float(coupling)),
                             sites,
-                            eq312_n_total,
+                            eq310_n_total,
                         )
-                        @ eq312_unitary
+                        @ eq310_unitary
                     )
 
-                eq312_channel = nu.reduced_channel(
-                    eq312_unitary,
-                    eq312_n_system,
-                    eq312_n_environment,
-                    eq312_environment,
+                eq310_channel = nu.reduced_channel(
+                    eq310_unitary,
+                    eq310_n_system,
+                    eq310_n_environment,
+                    eq310_environment,
                 )
                 rank_zero = nu.I2 / np.sqrt(2)
                 rank_one = [
@@ -1548,7 +1544,7 @@ def build_su2_nonmarkovian() -> None:
 
                 rank_zero_error = la.norm(
                     linear_channel_action(
-                        eq312_channel, rank_zero
+                        eq310_channel, rank_zero
                     )
                     - rank_zero
                 )
@@ -1557,7 +1553,7 @@ def build_su2_nonmarkovian() -> None:
                         np.trace(
                             output_tensor.conj().T
                             @ linear_channel_action(
-                                eq312_channel, input_tensor
+                                eq310_channel, input_tensor
                             )
                         )
                         for input_tensor in rank_one
@@ -1571,7 +1567,7 @@ def build_su2_nonmarkovian() -> None:
                     rank_one_transfer
                     - rank_one_coefficient * np.eye(3)
                 )
-                eq312_bound_ratio = (
+                eq310_bound_ratio = (
                     np.sum(la.svdvals(rank_one[0]))
                     / np.sum(la.svdvals(rank_one[0]))
                 )
@@ -1580,10 +1576,10 @@ def build_su2_nonmarkovian() -> None:
                 print(rank_one_transfer)
                 print("c^(1):", rank_one_coefficient)
                 print(
-                    "Eq. (3.12): |c^(1)| =",
+                    "Eq. (3.10): |c^(1)| =",
                     abs(rank_one_coefficient),
                     "<=",
-                    eq312_bound_ratio,
+                    eq310_bound_ratio,
                 )
                 print("rank-0 preservation error:", rank_zero_error)
                 print(
@@ -1596,7 +1592,7 @@ def build_su2_nonmarkovian() -> None:
                 assert abs(rank_one_coefficient.imag) < 1e-12
                 assert (
                     abs(rank_one_coefficient)
-                    <= eq312_bound_ratio + 1e-12
+                    <= eq310_bound_ratio + 1e-12
                 )
                 """
             ),
