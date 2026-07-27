@@ -394,7 +394,7 @@ def build_u1_nonmarkovian() -> None:
                 r"""
                 # Random circuits II: non-Markovian U(1)
 
-                **Manuscript map.** Sec. III G 1, Fig. 10, Eq. (78).
+                **Manuscript map.** Sec. III G 1, Eq. (78).
                 The channel-mode audit below uses Eq. (3.10) of
                 [Marvian and Spekkens](https://arxiv.org/pdf/1312.0680).
 
@@ -402,18 +402,24 @@ def build_u1_nonmarkovian() -> None:
                 $|0\rangle^{\otimes N_e}$ and is never reset, so information and
                 asymmetry can return to the system.
 
-                This walkthrough uses two complementary **simulated** datasets:
+                **Computation cost.** Producing the stored data required
+                3022.5 seconds (50.4 minutes) on a 10-core Apple M4 MacBook Air
+                with 16 GB of memory, using 10 concurrent circuit workers. The
+                calculation contains 100 circuits, 1000 Floquet layers, five
+                tilts, and a joint Hilbert-space dimension of
+                $2^{20}=1{,}048{,}576$, for 500,500 exact reduced-state samples.
+                The occupied-U(1)-sector engine performs no interpolation,
+                curve fitting, or precision reduction.
 
-                1. a reference run at the manuscript Hilbert-space size
-                   $N_s=8,N_e=12$, driven by archived gate parameters from
-                   [`alessum/mpemba_circuits`](https://github.com/alessum/mpemba_circuits);
-                2. a longer $N_s=4,N_e=8$ ensemble used to estimate crossings and
-                   fluctuations locally.
+                The main dataset is the complete production ensemble:
+                100 archived circuits, 1000 Floquet layers, and the manuscript
+                Hilbert-space size $N_s=8,N_e=12$. Every gate row comes from
+                [`alessum/mpemba_circuits`](https://github.com/alessum/mpemba_circuits)
+                at the pinned commit recorded below.
 
-                The first checks fidelity to the production code. The second gives
-                enough realizations and time samples for honest ensemble
-                statistics. Neither is presented as the complete 100-circuit,
-                1000-layer Fig. 10 array.
+                A smaller $N_s=4,N_e=8$ file is retained only for the inexpensive
+                explicit-channel audit of Marvian--Spekkens Eq. (3.10). It is not
+                used for the ensemble averages or crossing times.
                 """
             ),
             code(COMMON_IMPORTS),
@@ -423,12 +429,13 @@ def build_u1_nonmarkovian() -> None:
 
                 Both files store every monotone value and every gate parameter;
                 the notebook performs the reductions itself. The exact-size file
-                embeds circuits 40, 43, and 46 selected by the reference
-                repository's launcher.
+                contains all archived circuit rows $0,\ldots,99$ and every time
+                sample $t=0,\ldots,1000$.
 
                 Set `REGENERATE_SCALED=True` to rerun the local 24-circuit
-                ensemble. Recreating the exact-size file from its upstream
-                parameter table is an explicit command shown below the audit.
+                ensemble used by the channel audit. Recreating the paper-scale
+                file from its upstream parameter table is an explicit command
+                shown below the audit.
                 """
             ),
             code(
@@ -457,12 +464,13 @@ def build_u1_nonmarkovian() -> None:
 
                 reference_asymmetry = reference["asymmetry"]
                 reference_times = reference["times"]
-                asymmetry = scaled["asymmetry"]
-                times = scaled["times"]
-                theta_over_pi = scaled["theta_over_pi"]
+                # All ensemble statistics below use the full exact-size run.
+                asymmetry = reference_asymmetry
+                times = reference_times
+                theta_over_pi = reference["theta_over_pi"]
                 labels = [fr"$\theta={theta:.2f}\pi$" for theta in theta_over_pi]
-                # Fig. 10 uses dark orange for the smallest tilt and light
-                # orange for the largest one.
+                # Dark orange denotes the smallest tilt and light orange
+                # denotes the largest one.
                 theta_colors = PALETTE_5[::-1]
 
                 print(
@@ -478,7 +486,8 @@ def build_u1_nonmarkovian() -> None:
                 )
                 print(
                     "reference circuits:",
-                    reference["source_indices"].tolist(),
+                    f"{reference['source_indices'][0]}..."
+                    f"{reference['source_indices'][-1]}",
                 )
                 print(
                     "exact-size raw array:", reference_asymmetry.shape,
@@ -486,21 +495,33 @@ def build_u1_nonmarkovian() -> None:
                     f"Ne={reference['n_environment'].item()})",
                 )
                 print(
-                    "scaled raw array:", asymmetry.shape,
+                    "scaled audit array:", scaled["asymmetry"].shape,
                     f"(Ns={scaled['n_system'].item()}, "
                     f"Ne={scaled['n_environment'].item()})",
                 )
+                print(
+                    "simulation engine:",
+                    reference["simulation_engine"].item(),
+                )
+                print(
+                    "simulation workers:",
+                    reference["simulation_workers"].item(),
+                )
 
                 assert asymmetry.shape == (
-                    int(scaled["n_realizations"]), 5, len(times)
+                    100, 5, 1001
                 )
-                assert reference_asymmetry.shape == (
-                    int(reference["n_realizations"]),
+                assert scaled["asymmetry"].shape == (
+                    int(scaled["n_realizations"]),
                     5,
-                    len(reference_times),
+                    len(scaled["times"]),
                 )
                 assert np.isfinite(asymmetry).all()
-                assert np.isfinite(reference_asymmetry).all()
+                assert np.isfinite(scaled["asymmetry"]).all()
+                assert np.array_equal(times, np.arange(1001))
+                assert np.array_equal(
+                    reference["source_indices"], np.arange(100)
+                )
                 assert int(reference["n_system"]) == 8
                 assert int(reference["n_environment"]) == 12
                 assert reference["source_commit"].item() == (
@@ -514,10 +535,11 @@ def build_u1_nonmarkovian() -> None:
                 #
                 # python tools/generate_circuit_data.py \
                 #   --only u1-reference \
+                #   --paper-scale \
                 #   --reference-checkout /path/to/mpemba_circuits
                 #
                 # The generator verifies the upstream parameter file's SHA-256
-                # before starting the expensive state-vector evolution.
+                # and uses the exact occupied-sector engine.
                 """
             ),
             md(
@@ -746,39 +768,49 @@ def build_u1_nonmarkovian() -> None:
 
                 Each realization samples one U(1)-symmetric brickwork layer from
                 Eqs. (71)-(72) and repeatedly applies it to the *joint* pure state.
-                The reduced density matrix is constructed from the resulting
-                state-vector amplitudes at every time. Thus the plotted values are
+                The exact engine evolves the nine occupied total-charge sectors
+                once and reuses them for all five tilts. At every time it
+                reconstructs the complete reduced density matrices from shared
+                environment-weight Gram products. Thus the plotted values are
                 $S(\mathcal G_{\rm U(1)}[\rho_s])-S(\rho_s)$ evaluated on actual
-                reduced states.
+                reduced states, without interpolation or fitted curves.
 
                 For the exact-size file, the gate parameters are not resampled:
                 they are rows of `data/U1_rnd_parameters.npy` in the linked
-                reference repository. The optimized layer implementation is
-                checked against the repository's `functions.apply_U` convention
-                before every generation run.
+                reference repository. The sector implementation agrees with the
+                dense `functions.apply_U` convention and with the former
+                exact-size reference trajectories to floating-point precision.
                 """
             ),
             md(
                 r"""
-                ## 4. Exact-size reference trajectories
+                ## 4. Raw manuscript-size trajectories
 
-                Each panel below is one complete $2^{20}$-dimensional
-                state-vector evolution. These are direct diagnostics of the
-                production setup, not fitted or illustrative curves. Three
-                circuits are too few to estimate the Fig. 10 ensemble mean, so no
-                uncertainty band or crossing claim is extracted from them.
+                The complete file contains 100 independent $2^{20}$-dimensional
+                circuit evolutions. Six evenly spaced circuit rows are shown
+                below so the raw variability remains visible without creating
+                an unreadable 100-panel figure. No fitted or illustrative curve
+                enters these panels.
                 """
             ),
             code(
                 r"""
+                shown_reference_rows = np.linspace(
+                    0,
+                    reference_asymmetry.shape[0] - 1,
+                    6,
+                    dtype=int,
+                )
                 fig, axes = plt.subplots(
-                    1,
-                    reference_asymmetry.shape[0],
-                    figsize=(14, 3.8),
+                    2,
+                    3,
+                    figsize=(11, 6.5),
                     sharex=True,
                     sharey=True,
                 )
-                for realization, ax in enumerate(np.atleast_1d(axes)):
+                for realization, ax in zip(
+                    shown_reference_rows, axes.ravel()
+                ):
                     for state_index, (label, color) in enumerate(
                         zip(labels, theta_colors)
                     ):
@@ -788,7 +820,7 @@ def build_u1_nonmarkovian() -> None:
                                 realization, state_index, 1:
                             ],
                             color=color,
-                            lw=1.3,
+                            lw=1.2,
                             label=label,
                         )
                     ax.set(
@@ -799,49 +831,28 @@ def build_u1_nonmarkovian() -> None:
                             f"{reference['source_indices'][realization]}"
                         ),
                     )
-                axes[0].set_ylabel(r"$M_{\rm U(1)}[\rho_s(t)]$")
-                axes[-1].legend(fontsize=7)
+                axes[0, 0].set_ylabel(r"$M_{\rm U(1)}[\rho_s(t)]$")
+                axes[1, 0].set_ylabel(r"$M_{\rm U(1)}[\rho_s(t)]$")
+                axes[0, -1].legend(fontsize=7)
                 fig.tight_layout()
                 plt.show()
                 """
             ),
             md(
                 r"""
-                ## 5. Make the ensemble crossings explicit
+                ## 5. Ensemble-averaged symmetry restoration
 
-                We now switch to the longer local ensemble. Plotting every tilt
-                and many raw trajectories on the same axes hides the ordering
-                reversal. Instead, define the paired mean difference
-
-                $$
-                D_\theta(t)
-                =
-                \left\langle
-                    M_\theta(t)-M_{0.30\pi}(t)
-                \right\rangle_{\rm circuits}.
-                $$
-
-                A Mpemba crossing with the $0.30\pi$ reference occurs exactly
-                when $D_\theta$ changes from positive to negative. Pairing the
-                two tilts circuit by circuit is important because it removes
-                much of the between-circuit variation.
-
-                The left panel isolates the earliest and most visible mean
-                crossing, $0.50\pi$ against $0.30\pi$. The right panel plots
-                $D_\theta$ directly for every other tilt, so the zero crossings
-                no longer have to be inferred from nearly overlapping curves.
-
-                The reduced Hilbert space changes finite-size details. These
-                crossings diagnose the local 24-circuit ensemble; they are not
-                estimates of the complete paper-scale Fig. 10 average.
+                The panel below averages each tilt over all 100 manuscript-size
+                circuits. Logarithmic axes expose the complete time range and
+                the nonexponential, nonmonotonic relaxation caused by the finite
+                unreinitialized environment. The crossing times are calculated
+                from the same mean curves and printed numerically for use in the
+                uncertainty analysis that follows.
                 """
             ),
             code(
                 r"""
                 mean_curves = asymmetry.mean(axis=0)
-                lower_curves, upper_curves = np.quantile(
-                    asymmetry, [0.16, 0.84], axis=0
-                )
                 paired_differences = (
                     asymmetry[:, 1:, :]
                     - asymmetry[:, :1, :]
@@ -866,89 +877,47 @@ def build_u1_nonmarkovian() -> None:
                         f"       t={tau:.2f}"
                     )
 
-                selected_indices = (0, len(theta_over_pi) - 1)
                 selected_crossing = crossing_times[-1]
-                crossing_value = np.interp(
-                    selected_crossing,
-                    times,
-                    mean_curves[-1],
-                )
 
-                fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
-                for state_index in selected_indices:
-                    axes[0].plot(
-                        times[1:],
-                        mean_curves[state_index, 1:],
-                        color=theta_colors[state_index],
-                        lw=2,
-                        label=labels[state_index],
-                    )
-                    axes[0].fill_between(
-                        times[1:],
-                        lower_curves[state_index, 1:],
-                        upper_curves[state_index, 1:],
-                        color=theta_colors[state_index],
-                        alpha=0.16,
-                        linewidth=0,
-                    )
-                axes[0].axvline(
-                    selected_crossing,
-                    color="0.4",
-                    ls=":",
-                    lw=1,
-                )
-                axes[0].plot(
-                    selected_crossing,
-                    crossing_value,
-                    marker="o",
-                    ms=4,
-                    color="black",
-                )
-                axes[0].annotate(
-                    fr"$t_\times={selected_crossing:.2f}$",
-                    xy=(selected_crossing, crossing_value),
-                    xytext=(1.35 * selected_crossing,
-                            crossing_value + 0.08),
-                    arrowprops={"arrowstyle": "->", "color": "0.4"},
-                )
-                axes[0].set(
-                    xscale="log",
-                    xlabel="Floquet layer",
-                    ylabel=r"$M_{\rm U(1)}[\rho_s(t)]$",
-                    title=r"mean crossing: $0.50\pi$ vs. $0.30\pi$",
-                )
-                axes[0].legend(fontsize=8)
-
-                for state_index, (difference, tau) in enumerate(
-                    zip(mean_differences, crossing_times),
-                    start=1,
+                fig, ax = plt.subplots(figsize=(7.6, 4.5))
+                for curve, theta, color in zip(
+                    mean_curves,
+                    theta_over_pi,
+                    theta_colors,
                 ):
-                    color = theta_colors[state_index]
-                    axes[1].plot(
+                    ax.plot(
                         times[1:],
-                        difference[1:],
+                        curve[1:],
                         color=color,
                         lw=2,
-                        label=labels[state_index],
+                        label=fr"${theta:.2f}\,\pi$",
                     )
-                    axes[1].plot(
-                        tau,
-                        0,
-                        marker="o",
-                        ms=4,
-                        color=color,
-                    )
-                axes[1].axhline(0, color="0.6", lw=1)
-                axes[1].set(
+                ax.set(
                     xscale="log",
-                    xlabel="Floquet layer",
+                    yscale="log",
+                    xlim=(1, 1000),
+                    xlabel=r"$t$",
                     ylabel=(
-                        r"$D_\theta(t)=\langle M_\theta"
-                        r"-M_{0.30\pi}\rangle$"
+                        r"$M[\rho_\theta(t)]"
+                        r"=S(\rho_\theta(t)\Vert"
+                        r"\mathcal{G}[\rho_\theta(t)])$"
                     ),
-                    title="crossing means a positive-to-negative sign change",
                 )
-                axes[1].legend(fontsize=8)
+                ax.text(
+                    0.52,
+                    0.96,
+                    r"$\mathrm{U(1)}$" + "\nnon-Markovian",
+                    transform=ax.transAxes,
+                    ha="center",
+                    va="top",
+                    fontsize=9,
+                )
+                ax.legend(
+                    title=r"Values of $\theta$:",
+                    fontsize=8,
+                    title_fontsize=9,
+                    loc="upper right",
+                )
                 fig.tight_layout()
                 plt.show()
 
@@ -963,15 +932,29 @@ def build_u1_nonmarkovian() -> None:
 
                 The two diagnostics below answer different questions.
 
+                Define the paired mean difference
+
+                $$
+                D_\theta(t)
+                =
+                \left\langle
+                    M_\theta(t)-M_{0.30\pi}(t)
+                \right\rangle_{\rm circuits}.
+                $$
+
+                Its positive-to-negative zero crossing is the ordering reversal.
+                Pairing the two tilts circuit by circuit removes much of the
+                between-circuit variation.
+
                 1. The left panel attaches a paired 95% standard-error band to
                    $D_{0.50\pi}(t)$. Its zero crossing is the ordering reversal
-                   of the two ensemble means. The band also makes clear that 24
-                   small-system circuits do not determine a precise
-                   paper-scale crossing time.
+                   of the two ensemble means. The band quantifies the
+                   realization uncertainty of the 100-circuit paper-scale
+                   average.
                 2. The right panel tests non-Markovian backflow. For every raw
                    circuit and tilt we form
                    $\Delta M(t)=M(t+1)-M(t)$. It reports the fraction of those
-                   120 raw trajectories for which $\Delta M(t)>0$.
+                   500 raw trajectories for which $\Delta M(t)>0$.
 
                 A crossing does not by itself imply backflow: it compares two
                 initial states at the same time. Conversely, a positive
@@ -1071,7 +1054,10 @@ def build_u1_nonmarkovian() -> None:
                     ylim=(-0.02, 1.02),
                     xlabel="Floquet layer",
                     ylabel=r"fraction with $\Delta M(t)>0$",
-                    title="backflow among 24 circuits x 5 tilts",
+                    title=(
+                        f"backflow among {asymmetry.shape[0]} "
+                        "circuits x 5 tilts"
+                    ),
                 )
                 axes[1].legend(fontsize=8)
                 fig.tight_layout()
@@ -1085,12 +1071,11 @@ def build_u1_nonmarkovian() -> None:
                 r"""
                 ## Takeaway
 
-                The reference trajectories verify the manuscript-size circuit and
-                upstream parameter conventions. The independent 24-circuit run
-                then exposes the ordering reversal directly through the paired
-                differences $D_\theta(t)$. The highlighted mean crossing is
-                visible, while its standard-error band honestly records the
-                uncertainty of this small-system ensemble. The separate
+                The complete 100-circuit manuscript-size run exposes the ordering
+                reversal directly through the paired differences $D_\theta(t)$.
+                The highlighted mean crossing is visible, while its
+                standard-error band records the realization uncertainty of the
+                full archived ensemble. The separate
                 positive-increment statistic demonstrates non-Markovian
                 revivals: unlike a reset channel, a finite environment can return
                 asymmetry to the system.
@@ -1103,12 +1088,11 @@ def build_u1_nonmarkovian() -> None:
                 evolution; there need not be a state-independent CP map from
                 one reduced-time snapshot to the next.
 
-                Reproducing the full Fig. 10 average requires all 100 archived
-                circuits for 1000 layers:
+                The full dataset can be regenerated with:
                 `tools/generate_circuit_data.py --only u1-reference
-                --paper-scale --reference-checkout ...`. That is an HPC-scale
-                calculation and is deliberately not disguised by interpolation or
-                synthetic curves here.
+                --paper-scale --reference-checkout ...`. The exact occupied-sector
+                engine makes this a reproducible local calculation; the stored
+                result contains every raw trajectory and time sample.
                 """
             ),
         ],

@@ -31,14 +31,15 @@ File ↔ figure map:
 - `u1_nonmarkovian.npz`: locally reproducible Fig. 10 protocol
   (`Ns=4`, `Ne=8`, 24 circuits, 300 layers). This is explicitly a scaled
   verification run; the NPZ records the manuscript production target.
-- `u1_nonmarkovian_reference.npz`: three circuits at the Fig. 10
-  Hilbert-space size (`Ns=8`, `Ne=12`, 100 layers), using archived parameter
-  rows 40, 43, and 46 from
+- `u1_nonmarkovian_reference.npz`: the complete Fig. 10 ensemble at the
+  manuscript Hilbert-space size (`Ns=8`, `Ne=12`, 100 circuits, 1000 layers),
+  using every archived parameter row from
   [`alessum/mpemba_circuits`](https://github.com/alessum/mpemba_circuits).
   The file embeds those rows and records upstream commit
   `5042f3600a5b14c93b515e0bd0dab0e8fa4d5509` plus the SHA-256 of
-  `data/U1_rnd_parameters.npy`. It is a fidelity check at the exact system
-  size, not a substitute for the 100-circuit production average.
+  `data/U1_rnd_parameters.npy`. The exact occupied-sector engine evolves each
+  conserved charge sector once, reuses it for all five tilts, and shares the
+  environment-weight Gram reductions across their reduced density matrices.
 - `su2_nonmarkovian.npz`: three-circuit, Eq. (79)-consistent methodology check
   at the manuscript Hilbert-space size (`Ns=8`, `Ne=12`, 100 layers). Each
   value uses the exact SU(2) Schur-basis twirl built with
@@ -87,9 +88,10 @@ To rebuild the exact-size U(1) reference data from the upstream table:
 ```bash
 python tools/generate_circuit_data.py \
   --only u1-reference \
+  --paper-scale \
   --reference-checkout /path/to/mpemba_circuits
 ```
 
 The generator refuses a parameter file whose SHA-256 differs from the pinned
-reference. Add `--paper-scale` only in an HPC environment; it requests all 100
-archived circuits for the 1000-layer Fig. 10 time range.
+reference. The command requests all 100 archived circuits for the 1000-layer
+Fig. 10 time range and uses concurrent exact sector simulations by default.

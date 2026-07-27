@@ -61,14 +61,14 @@ and reproduces all ten pairwise crossings. It verifies covariance under
 
 ### Appendix companions
 
-- [`Mpemba_nonstatioinarity.ipynb`](Mpemba_nonstatioinarity.ipynb) —
+- 🌀 [`Mpemba_nonstatioinarity.ipynb`](Mpemba_nonstatioinarity.ipynb) —
   independent reconstruction of the Appendix A nonstationarity example. Both
   initial states are generated transparently; no pickle or stored trajectory is
   used.
-- [`Mpemba_ETH.ipynb`](Mpemba_ETH.ipynb) — manuscript-scale Appendix B
+- ⛓️ [`Mpemba_ETH.ipynb`](Mpemba_ETH.ipynb) — manuscript-scale Appendix B
   calculation for an \(N=15\) ETH bath, including the full sparse
   \(2^{16}\)-dimensional unitary evolution and Rényi crossing-time inset.
-- [`Mpemba_QFI_monotone.ipynb`](Mpemba_QFI_monotone.ipynb) — exact Appendix
+- 📐 [`Mpemba_QFI_monotone.ipynb`](Mpemba_QFI_monotone.ipynb) — exact Appendix
   QFI reconstruction showing crossings for SLD and Wigner-Yanase metrics but
   no crossing for the harmonic-mean metric.
 - [`NOTEBOOKS.md`](NOTEBOOKS.md) gives the recommended reading order and maps
@@ -111,18 +111,24 @@ The exact-size non-Markovian U(1) reference dataset uses archived gate parameter
 ```bash
 python tools/generate_circuit_data.py \
   --only u1-reference \
+  --paper-scale \
   --reference-checkout /path/to/mpemba_circuits
 ```
 
 The generator verifies the upstream parameter file by SHA-256 before running.
-Adding `--paper-scale` requests the full 100-circuit, 1000-layer Fig. 10 calculation and should be used only on suitable HPC resources.
+The exact occupied-U(1)-sector engine evolves each charge sector once, reuses
+it for all five tilts, and parallelizes independent circuits. The stored file
+contains the complete 100-circuit, 1000-layer Fig. 10 calculation.
 
 ## 📊 Circuit-data scope
 
 The stored data are deliberately explicit about their statistical scope:
 
 - Fig. 9 uses the manuscript system and ensemble size.
-- The non-Markovian U(1) walkthrough combines three   \(N_s=8,N_e=12\) reference-parameter runs with a longer 24-circuit \(N_s=4,N_e=8\) ensemble for local crossing and backflow statistics.
+- The non-Markovian U(1) walkthrough uses the complete 100-circuit
+  \(N_s=8,N_e=12\), 1000-layer archived-parameter ensemble. The smaller
+  24-circuit \(N_s=4,N_e=8\) file is retained only for the explicit channel
+  audit of Marvian--Spekkens Eq. (3.10).
 - The SU(2) walkthrough uses the manuscript Hilbert-space size \(N_s=8,N_e=12\)
   and the full 100-realization ensemble. It evolves isotropic partial-SWAP
   gates with an invariant singlet bath and computes asymmetry with the exact
