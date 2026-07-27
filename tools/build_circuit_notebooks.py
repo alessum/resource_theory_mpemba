@@ -1221,14 +1221,14 @@ def build_su2_nonmarkovian() -> None:
                 **Manuscript map.** Sec. III G 2, Fig. 11, Eq. (79).
 
                 This notebook computes the curves from 100 raw circuit
-                realizations at the paper size \(N_s=8,N_e=12\). Every gate is an
+                realizations at the paper size $N_s=8,N_e=12$. Every gate is an
                 isotropic-exchange (partial-SWAP) gate, the environment is a
                 product of singlets and is never reset, and the asymmetry uses the
                 exact SU(2) Haar twirl over every total-spin irrep.
 
                 This is not the Liu/U(1) construction. We explicitly test
                 covariance under all three noncommuting generators
-                \(S_x,S_y,S_z\) before plotting any result. The archived vector
+                $S_x,S_y,S_z$ before plotting any result. The archived vector
                 coordinates are loaded only afterward as an independent
                 figure-level comparison; they are never used to produce the
                 simulated curves.
@@ -1247,7 +1247,7 @@ def build_su2_nonmarkovian() -> None:
                 ```
 
                 The simulator evolves two fixed-magnetization sectors only as an
-                exact block decomposition of the same \(2^{20}\)-dimensional
+                exact block decomposition of the same $2^{20}$-dimensional
                 partial-SWAP circuit. No U(1) channel, dephasing surrogate, or
                 fitted decay law is involved.
                 """
@@ -1315,14 +1315,14 @@ def build_su2_nonmarkovian() -> None:
                 $$
 
                 Full SU(2) covariance requires it to commute independently with
-                \(S_x^{(1)}+S_x^{(2)}\), \(S_y^{(1)}+S_y^{(2)}\), and
-                \(S_z^{(1)}+S_z^{(2)}\). Checking only the last commutator would
+                $S_x^{(1)}+S_x^{(2)}$, $S_y^{(1)}+S_y^{(2)}$, and
+                $S_z^{(1)}+S_z^{(2)}$. Checking only the last commutator would
                 establish U(1), not SU(2).
 
                 We also verify that the singlet bath is invariant and that the
                 exact Clebsch--Gordan twirl commutes with all three collective
                 system generators. The twirl retains multiplicity coherences and
-                depolarizes each spin-\(j\) irrep; it is not a magnetization
+                depolarizes each spin-$j$ irrep; it is not a magnetization
                 dephasing map.
                 """
             ),
@@ -1467,20 +1467,20 @@ def build_su2_nonmarkovian() -> None:
                 $$
 
                 For equal input and output spin representations this becomes
-                \(|c^{(\mu)}|\leq1\). We test the equation on the smallest
+                $|c^{(\mu)}|\leq1$. We test the equation on the smallest
                 faithful instance of exactly the same dilation used above: one
                 system spin, a two-spin singlet bath, and a periodic layer of
                 isotropic partial-SWAP gates.
 
-                For a spin-\(1/2\) system, the normalized rank-zero tensor is
-                \(I/\sqrt2\), while \(X/\sqrt2,Y/\sqrt2,Z/\sqrt2\) span the
+                For a spin-$1/2$ system, the normalized rank-zero tensor is
+                $I/\sqrt2$, while $X/\sqrt2,Y/\sqrt2,Z/\sqrt2$ span the
                 rank-one tensor. Full SU(2) covariance requires the rank-one
-                transfer matrix to be \(c^{(1)}I_3\); a merely U(1)-covariant
+                transfer matrix to be $c^{(1)}I_3$; a merely U(1)-covariant
                 channel would not satisfy this three-axis identity.
 
                 The eight-qubit production system carries a reducible SU(2)
                 representation with multiplicities. Its transfer coefficients
-                are therefore the matrices \(c^{(\mu)}_{\beta\alpha}\) in
+                are therefore the matrices $c^{(\mu)}_{\beta\alpha}$ in
                 Eq. (3.10).
 
                 Reference: [Marvian and Spekkens, arXiv:1312.0680,
@@ -1806,15 +1806,15 @@ def build_su2_nonmarkovian() -> None:
                 documented by the manuscript's printed equations or public raw
                 data:
 
-                - the curve labels \(\theta/\pi=0.30,\ldots,0.50\) correspond to
+                - the curve labels $\theta/\pi=0.30,\ldots,0.50$ correspond to
                   the tilt
-                  \[
+                  $$
                   |\varphi_\theta\rangle
                   =\cos[(\theta+\pi/2)/2]|\xi\rangle^{\otimes N_s/2}
                   +\sin[(\theta+\pi/2)/2]|0\rangle^{\otimes N_s};
-                  \]
+                  $$
                 - the displayed axis uses
-                  \(t=0.1+0.2(\text{Floquet layer}-1)\).
+                  $t=0.1+0.2(\text{Floquet layer}-1)$.
 
                 These conventions were identified by testing the manuscript
                 protocol against the archived panel; they are not inferred from
