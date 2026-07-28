@@ -399,6 +399,10 @@ def build_u1_nonmarkovian() -> None:
                 **Manuscript map.** Sec. III G 1, Eq. (78).
                 The channel-mode audit below uses Eq. (3.10) of
                 [Marvian and Spekkens](https://arxiv.org/pdf/1312.0680).
+                The SU(2) non-Markovian companion
+                [`asymm_ex5.ipynb`](asymm_ex5.ipynb) applies the same
+                Eq. (3.10) as a contraction bound on the rank-1
+                irreducible tensor.
 
                 Here the environment is a finite quantum memory. It starts in
                 $|0\rangle^{\otimes N_e}$ and is never reset, so information and
@@ -1831,7 +1835,11 @@ def build_su2_nonmarkovian() -> None:
                 Eq. (3.10).
 
                 Reference: [Marvian and Spekkens, arXiv:1312.0680,
-                Eq. (3.10)](https://arxiv.org/pdf/1312.0680).
+                Eq. (3.10)](https://arxiv.org/pdf/1312.0680). The U(1)
+                non-Markovian companion
+                [`asymm_ex4.1.a.ipynb`](asymm_ex4.1.a.ipynb) applies the
+                same equation as an explicit mode-transfer reconstruction
+                identity.
                 """
             ),
             code(
@@ -1945,7 +1953,197 @@ def build_su2_nonmarkovian() -> None:
             ),
             md(
                 r"""
-                ## 4. Reproduce Figure 11 from the simulation
+                ## 4. Rank-resolved decay hierarchy
+
+                An SU(2)-covariant channel commutes with every conjugation
+                projector $\mathcal P_K$, so its superoperator is block
+                diagonal on the irreducible tensor ranks $K=0,\ldots,N_s$.
+                The mode-overlap Mpemba mechanism claims that the
+                ensemble-averaged slowest non-stationary eigenvalue
+                $\eta_K$ of each block satisfies
+                $|\eta_1|>|\eta_2|>\cdots>|\eta_{N_s}|$, so higher modes of
+                asymmetry decay faster on average. It is the non-Abelian
+                analog of the charge-resolved hierarchy verified for U(1) in
+                [`asymm_ex4.ipynb`](asymm_ex4.ipynb).
+
+                We audit the claim on a family of small SU(2)-covariant
+                reset channels built from the same isotropic partial-SWAP
+                gate family used above. The size is kept small ($N_s=4$,
+                $N_e=2$) so the full superoperator and its rank-projectors
+                fit into a few megabytes; the effect is a structural
+                statement about SU(2)-covariant CPTP maps, so it does not
+                depend on the paper's Hilbert-space size. For each random
+                draw we block-diagonalize $\mathcal E$, record
+                $\log|\eta_K|$ per non-invariant rank, and then assert
+                strict monotonicity of the ensemble means.
+                """
+            ),
+            code(
+                r"""
+                RANK_N_SYSTEM = 4
+                RANK_N_ENVIRONMENT = 2
+                RANK_N_TOTAL = RANK_N_SYSTEM + RANK_N_ENVIRONMENT
+                RANK_REALIZATIONS = 50
+                RANK_COUPLING_RANGE = np.pi / 5
+
+                def _rank_covariant_channel(rng):
+                    unitary = np.eye(2**RANK_N_TOTAL, dtype=complex)
+                    for coupling, sites in zip(
+                        rng.uniform(
+                            -RANK_COUPLING_RANGE,
+                            RANK_COUPLING_RANGE,
+                            RANK_N_TOTAL,
+                        ),
+                        nu.brickwork_pairs(RANK_N_TOTAL),
+                    ):
+                        unitary = (
+                            nu.embed_two_qubit_gate(
+                                nu.su2_gate(float(coupling)),
+                                sites,
+                                RANK_N_TOTAL,
+                            )
+                            @ unitary
+                        )
+                    environment_ket = nu.singlet_product(
+                        RANK_N_ENVIRONMENT
+                    )
+                    return nu.reduced_channel(
+                        unitary,
+                        RANK_N_SYSTEM,
+                        RANK_N_ENVIRONMENT,
+                        np.outer(
+                            environment_ket,
+                            environment_ket.conj(),
+                        ),
+                    )
+
+                rank_mode_bases = nu.su2_operator_irrep_bases(
+                    RANK_N_SYSTEM
+                )
+                rank_labels = sorted(
+                    k for k in rank_mode_bases if k > 0
+                )
+                rank_log_eta = {k: [] for k in rank_labels}
+                rank_covariance = {k: [] for k in rank_labels}
+                rank_rng = np.random.default_rng(20260728)
+
+                # Suppress the denormal-arithmetic RuntimeWarnings that
+                # Apple-Silicon BLAS emits when it multiplies the sparse
+                # rank-projector matrices. The numeric results are
+                # unaffected (they match a warning-free reference run).
+                with np.errstate(
+                    divide="ignore", over="ignore", invalid="ignore"
+                ):
+                    for _ in range(RANK_REALIZATIONS):
+                        reset_channel = _rank_covariant_channel(rank_rng)
+                        channel_norm = la.norm(reset_channel)
+                        for k in rank_labels:
+                            basis = rank_mode_bases[k]
+                            projector = basis @ basis.conj().T
+                            rank_covariance[k].append(
+                                la.norm(
+                                    reset_channel @ projector
+                                    - projector @ reset_channel
+                                )
+                                / channel_norm
+                            )
+                            block = (
+                                basis.conj().T
+                                @ reset_channel
+                                @ basis
+                            )
+                            rank_log_eta[k].append(
+                                float(
+                                    np.log(
+                                        np.max(
+                                            np.abs(la.eigvals(block))
+                                        )
+                                    )
+                                )
+                            )
+
+                rank_mean = np.array(
+                    [np.mean(rank_log_eta[k]) for k in rank_labels]
+                )
+                rank_sem = np.array(
+                    [
+                        np.std(rank_log_eta[k], ddof=1)
+                        / np.sqrt(RANK_REALIZATIONS)
+                        for k in rank_labels
+                    ]
+                )
+
+                print(
+                    f"Ns={RANK_N_SYSTEM}, Ne={RANK_N_ENVIRONMENT}, "
+                    f"realizations={RANK_REALIZATIONS}"
+                )
+                print(
+                    "per-rank covariance error (<= 1e-12 confirms block "
+                    "structure):"
+                )
+                for k in rank_labels:
+                    print(
+                        f"  K={k}: {np.mean(rank_covariance[k]):.2e}"
+                    )
+
+                print(
+                    "\n<log|eta_slow(K)|> "
+                    "(more negative = faster ensemble decay):"
+                )
+                for k, mean, sem in zip(
+                    rank_labels, rank_mean, rank_sem
+                ):
+                    print(
+                        f"  K={k}: {mean:+.4f}  (SE {sem:.4f})"
+                    )
+
+                rank_gaps = np.diff(rank_mean)
+                for k, gap in zip(rank_labels[:-1], rank_gaps):
+                    print(
+                        f"  K={k} -> K={k + 1}: "
+                        f"Delta<log|eta|> = {gap:+.4f}"
+                    )
+
+                assert np.all(
+                    np.array(
+                        [
+                            np.mean(rank_covariance[k])
+                            for k in rank_labels
+                        ]
+                    )
+                    < 1e-12
+                )
+                assert np.all(rank_gaps < 0)
+
+                fig, ax = plt.subplots(figsize=(6.0, 3.6))
+                ax.bar(
+                    rank_labels,
+                    rank_mean,
+                    yerr=1.96 * rank_sem,
+                    color=BLUE,
+                    alpha=0.85,
+                    capsize=4,
+                )
+                ax.axhline(0, color="0.5", lw=0.5)
+                ax.set(
+                    xlabel=r"tensor rank $K$",
+                    ylabel=(
+                        r"$\langle\log|\eta_{\rm slow}(K)|\rangle$"
+                    ),
+                    title=(
+                        f"Rank-resolved slowest decay, "
+                        f"{RANK_REALIZATIONS} SU(2)-covariant "
+                        f"channels"
+                    ),
+                )
+                ax.set_xticks(rank_labels)
+                fig.tight_layout()
+                plt.show()
+                """
+            ),
+            md(
+                r"""
+                ## 5. Reproduce Figure 11 from the simulation
 
                 Solid lines and 95% standard-error bands below come from the
                 raw 100-realization simulation.
@@ -2001,7 +2199,7 @@ def build_su2_nonmarkovian() -> None:
             ),
             md(
                 r"""
-                ## 5. Pairwise Mpemba crossings
+                ## 6. Pairwise Mpemba crossings
 
                 Figure 11 reverses the ordering of all five initial conditions.
                 The table measures the first crossing of every pair directly from

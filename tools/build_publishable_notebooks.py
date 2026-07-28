@@ -138,9 +138,6 @@ write_notebook(
             1. Interpret athermality as the distance from the Gibbs distribution.
             2. See why overlap with the slowest Liouvillian modes controls late-time decay.
             3. Verify that the crossing time depends on the chosen Renyi monotone.
-
-            The longer production script and stored arrays used for the paper live in
-            `asymmetry_and_mpemba/thermal_mpemba/`.
             """
         ),
         md(
@@ -366,36 +363,6 @@ write_notebook(
                    ylabel=r"crossing time $\tau_\alpha$",
                    title="The crossing depends on the monotone")
             plt.show()
-            """
-        ),
-        md(
-            r"""
-            ## 6. Reproduction check against the archived paper arrays
-
-            The repository includes the high-budget production output. The following
-            check does not replace the calculation above; it confirms that the
-            notebook has reproduced the same ordering, crossing, and late-time
-            speedup.
-            """
-        ),
-        code(
-            r"""
-            data_dir = Path(
-                "asymmetry_and_mpemba/thermal_mpemba/data_for_figures/"
-                "thermal_mpemba_classical_figure"
-            )
-            paper_t = np.load(data_dir / "time_list.npy")
-            paper_thermal = np.load(data_dir / "KL_distance.npy")
-            paper_optimized = np.load(data_dir / "KL_distance_2.npy")
-            paper_tau = nu.crossing_time(
-                paper_t, paper_optimized, paper_thermal
-            )
-
-            print(f"Notebook crossing: {tau_kl:.4f}")
-            print(f"Archived production crossing: {paper_tau:.4f}")
-            print("Both runs show the same strong Mpemba ordering:",
-                  paper_optimized[0] > paper_thermal[0]
-                  and paper_optimized[-1] < paper_thermal[-1])
             """
         ),
         md(
@@ -972,9 +939,9 @@ write_notebook(
             concentrated in a faster sector restores symmetry first.
 
             This implementation deliberately fixes eigenoperator phases by
-            hermitizing the selected modes. That avoids the phase-dependent,
-            non-Hermitian states produced by the original exploratory notebook on
-            some SciPy versions.
+            hermitizing the selected modes. That avoids phase-dependent,
+            non-Hermitian states that can arise from the eigendecomposition
+            conventions of some SciPy versions.
             """
         ),
         code(COMMON_IMPORTS),
@@ -3269,9 +3236,7 @@ write_notebook(
             A Mpemba effect is a statement about a dynamics, a state pair, and a
             chosen resource monotone. SLD and WY detect ordering reversals at
             \(Jt_\times\simeq0.0483\) and \(0.0352\), respectively, while HM
-            detects none for the same physical trajectories. This exact
-            reconstruction supersedes the exploratory notebook archived under
-            `asymmetry_and_mpemba/fig_s3/`.
+            detects none for the same physical trajectories.
             """
         ),
     ],
@@ -3279,7 +3244,7 @@ write_notebook(
 
 
 # The circuit walkthroughs have their own data-backed builder.  Run it last so
-# the executed NPZ analyses supersede the early exploratory versions above.
+# the NPZ-driven notebooks overwrite the placeholders written above.
 from build_circuit_notebooks import build_all as build_circuit_notebooks
 
 CIRCUIT_NOTEBOOKS = {

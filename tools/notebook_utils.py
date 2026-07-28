@@ -200,9 +200,8 @@ def davies_liouvillian(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Davies generator in the energy basis for all-to-all bosonic transitions.
 
-    This is the compact form of the jump-operator construction used in
-    ``asymmetry_and_mpemba/thermal_mpemba/``.  Populations obey detailed
-    balance and each energy-basis coherence evolves independently.
+    Populations obey detailed balance and each energy-basis coherence evolves
+    independently.
     """
     energies, energy_basis = la.eigh(hamiltonian)
     dimension = len(energies)

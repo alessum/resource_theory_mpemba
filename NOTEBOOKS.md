@@ -44,6 +44,14 @@ with the exact Clebsch--Gordan Haar twirl. The notebook documents the
 figure-matching angle and time-axis conventions used to plot the resulting
 raw ensemble mean.
 
+Both non-Markovian circuit notebooks audit the same Marvian--Spekkens
+Eq. (3.10) ([arXiv:1312.0680](https://arxiv.org/abs/1312.0680)): the U(1)
+walkthrough ([`asymm_ex4.1.a.ipynb`](notebooks/asymm_ex4.1.a.ipynb)) uses it as
+an explicit mode-transfer reconstruction identity on the reduced channel; the
+SU(2) walkthrough ([`asymm_ex5.ipynb`](notebooks/asymm_ex5.ipynb)) uses it as
+the contraction bound \(|c^{(1)}|\le 1\) on the rank-1 irreducible tensor of
+the isotropic partial-SWAP dilation.
+
 ## Appendix companion scope
 
 The three appendix notebooks use the same editorial structure as the main-text
