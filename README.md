@@ -157,7 +157,7 @@ The stored data are deliberately explicit about their statistical scope:
 - The non-Markovian U(1) walkthrough uses the complete 100-circuit
   $N_s=8,N_e=12$, 1000-layer archived-parameter ensemble. The smaller
   24-circuit $N_s=4,N_e=8$ file is retained only for the explicit channel
-  audit of Marvian--Spekkens Eq. (3.10).
+  audit of [Marvian--Spekkens](https://arxiv.org/abs/1312.0680) Eq. (3.10).
 - The SU(2) walkthrough uses the manuscript Hilbert-space size $N_s=8,N_e=12$
   and the full 100-realization ensemble. It evolves isotropic partial-SWAP
   gates with an invariant singlet bath and computes asymmetry with the exact
