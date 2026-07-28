@@ -25,7 +25,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 
 WIDTH = 960
-HEIGHT = 400
+HEIGHT = 358
 # Internal supersampling factor.  Every drawing coordinate is multiplied by
 # SCALE, so the offscreen canvas is (WIDTH * SCALE) x (HEIGHT * SCALE) and gets
 # downsampled by LANCZOS to the final output.  The output dimensions are
@@ -250,6 +250,7 @@ FONTS = {
     "footer": load_font(16, bold=True),
     "body_bold_math": load_font(13, bold=True, math=True),
     "small_bold_math": load_font(11, bold=True, math=True),
+    "small_math": load_font(11, math=True),
     "equation_math": load_font(14, math=True),
 }
 
@@ -525,18 +526,9 @@ def draw_free_set(
     )
     text(
         draw,
-        (cx, cy - 52),
-        "Free-state",
+        (cx, cy - 120),
+        "Free-state set F",
         font="small_bold",
-        fill=FREE_SET_COLOR,
-        opacity=opacity,
-        anchor="mm",
-    )
-    text(
-        draw,
-        (cx, cy - 36),
-        "set ℱ",
-        font="body_bold",
         fill=FREE_SET_COLOR,
         opacity=opacity,
         anchor="mm",
@@ -553,6 +545,8 @@ def draw_token(
     opacity: float,
     label: str,
 ) -> None:
+    if opacity <= 0.002:
+        return
     cx, cy = center
     glow_radius = radius + 5 + 6 * slow_strength
     draw.ellipse(
@@ -916,53 +910,99 @@ def render_frame(frame_index: int) -> Image.Image:
         -(SLOW_DECAY / 2.0) * physical_time
     )
 
-    # Tokens follow the arrow tracks and then curve into the free-state set F,
-    # illustrating that the free dynamics drives every state toward F.
-    free_center_x, free_center_y = 600.0, 220.0
-    token_target_a = (free_center_x, free_center_y - 20.0)
-    token_target_b = (free_center_x, free_center_y + 30.0)
-    along_track_p = clamp(evolution_progress / 0.72)
-    capture_progress = smoothstep(0.72, 1.0, evolution_progress)
+    # Both balls advance along their tracks at the same rate, so the horizontal
+    # axis on the tracks marks only the passage of time.  Each token's radius
+    # shrinks with its monotone M, visually conveying that the free dynamics
+    # is dissipating the resource.
+    along_track_p = evolution_progress
     track_position_x = track_x0 + (track_x1 - track_x0) * along_track_p
-    token_x_a = (
-        track_position_x
-        + (token_target_a[0] - track_position_x) * capture_progress
-    )
-    token_x_b = (
-        track_position_x
-        + (token_target_b[0] - track_position_x) * capture_progress
-    )
-    token_y_a = row_a + (token_target_a[1] - row_a) * capture_progress
-    token_y_b = row_b + (token_target_b[1] - row_b) * capture_progress
-    capture_alpha = 1.0 - 0.35 * capture_progress
     token_opacity = section_opacity
-
-    # Draw the free-state set first so the tokens appear to move into it.
-    free_opacity = section_opacity
-    draw_free_set(
-        draw,
-        (free_center_x, free_center_y),
-        free_opacity,
-        glow=capture_progress,
-    )
 
     draw_token(
         draw,
-        center=(token_x_a, token_y_a),
+        center=(track_position_x, row_a),
         radius=7.0 + 16.0 * value_a**0.45,
         color=STATE_A_COLOR,
         slow_strength=slow_a,
-        opacity=token_opacity * capture_alpha,
+        opacity=token_opacity,
         label="ρ̂₁",
     )
     draw_token(
         draw,
-        center=(token_x_b, token_y_b),
+        center=(track_position_x, row_b),
         radius=7.0 + 16.0 * value_b**0.45,
         color=STATE_B_COLOR,
         slow_strength=slow_b,
-        opacity=token_opacity * capture_alpha,
+        opacity=token_opacity,
         label="ρ̂₂",
+    )
+
+    # Pictural legend at the bottom of the mid panel: a small black ball
+    # beside a vertical dimension bracket, then "= M(ρ̂)".  The second line
+    # explains what M(ρ̂) is and how it decays.
+    machine_center_x = (machine_box[0] + machine_box[2]) / 2.0
+    legend_y = 280.0
+    legend_ball_x = 432.0
+    legend_ball_radius = 6.0
+    legend_dim_x = legend_ball_x + legend_ball_radius + 4.0
+    legend_dim_top = legend_y - legend_ball_radius
+    legend_dim_bot = legend_y + legend_ball_radius
+    legend_tick = 3.0
+    draw.ellipse(
+        scaled_box(
+            (
+                legend_ball_x - legend_ball_radius,
+                legend_y - legend_ball_radius,
+                legend_ball_x + legend_ball_radius,
+                legend_y + legend_ball_radius,
+            )
+        ),
+        fill=blend(INK, section_opacity),
+    )
+    draw.line(
+        scaled_points(
+            [(legend_dim_x, legend_dim_top), (legend_dim_x, legend_dim_bot)]
+        ),
+        fill=blend(STRUCTURE, section_opacity),
+        width=1 * SCALE,
+    )
+    draw.line(
+        scaled_points(
+            [
+                (legend_dim_x - legend_tick, legend_dim_top),
+                (legend_dim_x + legend_tick, legend_dim_top),
+            ]
+        ),
+        fill=blend(STRUCTURE, section_opacity),
+        width=1 * SCALE,
+    )
+    draw.line(
+        scaled_points(
+            [
+                (legend_dim_x - legend_tick, legend_dim_bot),
+                (legend_dim_x + legend_tick, legend_dim_bot),
+            ]
+        ),
+        fill=blend(STRUCTURE, section_opacity),
+        width=1 * SCALE,
+    )
+    text(
+        draw,
+        (legend_dim_x + legend_tick + 5.0, legend_y),
+        "= M(ρ̂)",
+        font="small",
+        fill=MUTED,
+        opacity=section_opacity,
+        anchor="lm",
+    )
+    text(
+        draw,
+        (machine_center_x, 294),
+        "the state's resource, dissipated by ℰ(t) as time evolves.",
+        font="small",
+        fill=MUTED,
+        opacity=section_opacity,
+        anchor="ma",
     )
 
     # The pulse is aesthetic; the exact crossing is placed from the analytic curve.
@@ -1121,7 +1161,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=repository_root / "figures" / "resource_mpemba_mechanism_fig1.gif",
+        default=repository_root / "figures" / "figure1.gif",
         help="Destination GIF path.",
     )
     parser.add_argument(

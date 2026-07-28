@@ -1,9 +1,10 @@
 # Circuit datasets
 
-These files are the raw inputs of `asymm_ex4.ipynb`,
-`asymm_ex4.1.a.ipynb`, and `asymm_ex5.ipynb`, which reproduce Figs. 9, 10,
-and 11 of *Resource-Theoretical Unification of Mpemba Effects: Classical and
-Quantum* respectively. Regenerate them from the repository root with:
+These files are the raw inputs of `notebooks/asymm_ex4.ipynb`,
+`notebooks/asymm_ex4.1.a.ipynb`, and `notebooks/asymm_ex5.ipynb`, which
+reproduce Figs. 9, 10, and 11 of *Resource-Theoretical Unification of Mpemba
+Effects: Classical and Quantum* respectively. Regenerate them from the
+repository root with:
 
 ```bash
 python tools/generate_circuit_data.py
@@ -17,10 +18,10 @@ File ↔ figure map:
 
 | Figure | File | Notebook |
 |---|---|---|
-| Fig. 9 | `u1_markovian.npz` | `asymm_ex4.ipynb` |
-| Fig. 10 | `u1_nonmarkovian.npz`, `u1_nonmarkovian_reference.npz` | `asymm_ex4.1.a.ipynb` |
-| Fig. 11 | `su2_fig11_full_su2.npz` | `asymm_ex5.ipynb` |
-| Fig. 11 (methodology check) | `su2_nonmarkovian.npz` | `asymm_ex5.ipynb` |
+| Fig. 9 | `u1_markovian.npz` | `notebooks/asymm_ex4.ipynb` |
+| Fig. 10 | `u1_nonmarkovian.npz`, `u1_nonmarkovian_reference.npz` | `notebooks/asymm_ex4.1.a.ipynb` |
+| Fig. 11 | `su2_fig11_full_su2.npz` | `notebooks/asymm_ex5.ipynb` |
+| Fig. 11 (methodology check) | `su2_nonmarkovian.npz` | `notebooks/asymm_ex5.ipynb` |
 
 ## Files
 
@@ -68,10 +69,10 @@ but it does not contain a reproducible Fig. 11 run: the committed runner
 selects U(1), its dormant SU(2) path and coupling law do not match the
 caption, its initial state and environment do not match Eq. (79), and no
 SU(2) parameter table or raw SU(2) result is stored there. This repository
-closes that gap: `su2_fig11_full_su2.npz` together with `asymm_ex5.ipynb`
-regenerate the five Fig. 11 curves and all ten crossings at the manuscript
-Hilbert-space and ensemble size, entirely from the isotropic-coupling
-protocol and the exact SU(2) Schur-basis twirl.
+closes that gap: `su2_fig11_full_su2.npz` together with
+`notebooks/asymm_ex5.ipynb` regenerate the five Fig. 11 curves and all ten
+crossings at the manuscript Hilbert-space and ensemble size, entirely from
+the isotropic-coupling protocol and the exact SU(2) Schur-basis twirl.
 
 Verify the manuscript-era CG basis without writing the basis matrix:
 

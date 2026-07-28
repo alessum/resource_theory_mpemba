@@ -14,6 +14,7 @@ from nbclient import NotebookClient
 
 
 ROOT = Path(__file__).resolve().parents[1]
+NOTEBOOKS_DIR = ROOT / "notebooks"
 NOTEBOOKS = [
     "atherm_ex1.ipynb",
     "atherm_ex2.ipynb",
@@ -38,7 +39,7 @@ def main() -> None:
         raise ValueError(f"Unknown notebook filename(s): {sorted(unknown)}")
     selected = requested or NOTEBOOKS
     for filename in selected:
-        path = ROOT / filename
+        path = NOTEBOOKS_DIR / filename
         notebook = nbformat.read(path, as_version=4)
         started = time.perf_counter()
         client = NotebookClient(

@@ -8,6 +8,8 @@ from textwrap import dedent
 
 
 ROOT = Path(__file__).resolve().parents[1]
+NOTEBOOKS_DIR = ROOT / "notebooks"
+NOTEBOOKS_DIR.mkdir(exist_ok=True)
 
 
 def _source(text: str) -> str:
@@ -48,7 +50,7 @@ def write_notebook(filename: str, cells: list) -> None:
         "nbformat": 4,
         "nbformat_minor": 5,
     }
-    (ROOT / filename).write_text(
+    (NOTEBOOKS_DIR / filename).write_text(
         json.dumps(notebook, indent=1) + "\n",
         encoding="utf-8",
     )

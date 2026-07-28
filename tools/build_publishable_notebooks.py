@@ -30,6 +30,8 @@ if __name__ != "__main__":
 
 
 ROOT = Path(__file__).resolve().parents[1]
+NOTEBOOKS_DIR = ROOT / "notebooks"
+NOTEBOOKS_DIR.mkdir(exist_ok=True)
 REQUESTED_NOTEBOOKS = set(sys.argv[1:])
 WRITTEN_NOTEBOOKS: list[str] = []
 
@@ -76,7 +78,7 @@ def write_notebook(filename: str, cells: list) -> None:
             },
         },
     )
-    nbf.write(notebook, ROOT / filename)
+    nbf.write(notebook, NOTEBOOKS_DIR / filename)
     WRITTEN_NOTEBOOKS.append(filename)
 
 

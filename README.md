@@ -27,7 +27,7 @@ spectrum · random circuits · U(1) · SU(2) · ETH · quantum Fisher
 information.
 
 <!-- Regenerate with: python tools/generate_readme_gif.py -->
-![Animated schematic of the resource-theoretic Mpemba mechanism: two states evolve under the same free dynamics; state A starts with more of the chosen resource but has less overlap with its slowest relevant decay mode, so its resource monotone falls below that of state B at the Mpemba crossing](figures/resource_mpemba_mechanism_fig1.gif)
+![Animated schematic of the resource-theoretic Mpemba mechanism: two states evolve under the same free dynamics; state A starts with more of the chosen resource but has less overlap with its slowest relevant decay mode, so its resource monotone falls below that of state B at the Mpemba crossing](figures/figure1.gif)
 
 *Animated summary. Under the same free dynamics, an initially more resourceful
 state can lose the chosen resource faster when it has less overlap with the
@@ -48,26 +48,35 @@ and quantum settings.*
   depletion: symmetry restoration is the dissipation of asymmetry.
   [Manuscript: Sec. I.1](https://arxiv.org/html/2507.16976#S1.SS1) ·
   [Sec. IV](https://arxiv.org/html/2507.16976#S4) ·
-  [Walkthrough](asymm_ex6.ipynb)
+  [Walkthrough](notebooks/asymm_ex6.ipynb)
 
 - **📉 A common spectral mechanism to the thermal Mpemba effect.**
   We show that anomalous relaxation is governed by the initial state’s overlap with the eigenmodes of the dissipative map — a mechanism that has been recognised only in the thermal and nonstationary Mpemba effect by [Nava and Fabrizio](https://doi.org/10.1103/PhysRevB.100.125102) and [Carollo, Lasanta, and Lesanovsky](https://doi.org/10.1103/PhysRevLett.127.060401), a strongly symmetry-broken state can relax faster when its overlap with the slowest symmetry-restoring mode is small or vanishes.
   [Manuscript: Sec. II](https://arxiv.org/html/2507.16976#S2) ·
   [Sec. III.3](https://arxiv.org/html/2507.16976#S3.SS3) ·
-  [Thermal walkthrough](atherm_ex1.ipynb) ·
-  [Symmetry-mode walkthrough](asymmetry_modes_example.ipynb)
+  [Thermal walkthrough](notebooks/atherm_ex1.ipynb) ·
+  [Symmetry-mode walkthrough](notebooks/asymmetry_modes_example.ipynb)
 
 - **⚖️ The symmetry Mpemba effect is not inherently quantum.**
   It already occurs in classical Markovian systems. Entanglement can accompany particular realizations, but it is not required for the effect.
   [Manuscript: Sec. III.4](https://arxiv.org/html/2507.16976#S3.SS4) ·
-  [Walkthrough](asymm_ex1.ipynb)
+  [Walkthrough](notebooks/asymm_ex1.ipynb)
+
+- **🌐 Open vs. closed is not the fundamental distinction; Markovian vs. non-Markovian is.**
+  Dissipating a resource necessarily requires an environment. In the "closed" Mpemba settings often studied — entanglement-asymmetry circuits, ETH baths, and any subsystem of a unitarily evolving composite — the joint system+environment universe is globally unitary and its total asymmetry (or athermality) is exactly conserved. What decreases *locally* is the reduced-state monotone, because the resource is dispersed into non-local system-environment correlations that the partial trace discards. Whether the environment is an external featureless bath or the complementary subsystem of an overall isolated Hilbert space, the reduced dynamics is the same G-covariant CPTP map; the phenomenology is set by the memory of that map — Markovian versus non-Markovian — not by the openness of the universe. The paper's *"From global G-invariance to local G-covariance"* appendix (arXiv Appendix F) makes this precise: a global *strong* symmetry — a G-invariant unitary on the joint system-environment — always reduces, after tracing out an initially G-invariant environment, to a *weak* symmetry (a G-covariant CPTP map) on the system, so the reduced dynamics is weakly symmetric even when the global evolution is strongly symmetric.
+  [Manuscript: Sec. III.1](https://arxiv.org/html/2507.16976#S3.SS1) ·
+  [Sec. III.7](https://arxiv.org/html/2507.16976#S3.SS7) ·
+  [Sec. V](https://arxiv.org/html/2507.16976#S5) ·
+  [Appendix (G-invariance → G-covariance)](https://arxiv.org/html/2507.16976#A6) ·
+  [Non-Markovian U(1) circuits](notebooks/asymm_ex4.1.a.ipynb) ·
+  [ETH isolated bath](notebooks/Mpemba_ETH.ipynb)
 
 - **🎲 Random circuits reveal the role of modes of asymmetry.**
   In symmetry-preserving circuits, different charge modes decay at different rates. More strongly tilted initial states tend to populate Hilbert-space sectors statistically associated with faster-decaying eigenmodes, providing a mode-resolved explanation for their faster symmetry restoration.
   [Manuscript: Sec. III.7](https://arxiv.org/html/2507.16976#S3.SS7) ·
-  [Markovian U(1)](asymm_ex4.ipynb) ·
-  [Non-Markovian U(1)](asymm_ex4.1.a.ipynb) ·
-  [Non-Abelian SU(2)](asymm_ex5.ipynb)
+  [Markovian U(1)](notebooks/asymm_ex4.ipynb) ·
+  [Non-Markovian U(1)](notebooks/asymm_ex4.1.a.ipynb) ·
+  [Non-Abelian SU(2)](notebooks/asymm_ex5.ipynb)
 
 ## 📁 Repository contents
 
@@ -77,18 +86,18 @@ reproduction status, constructs the model, verifies the relevant structural
 properties, and only then tests the Mpemba crossing. The SU(2) notebook
 recomputes the five Fig. 11 curves from 100 raw full-SU(2) circuit realizations
 and reproduces all ten pairwise crossings. It verifies covariance under
-\(S_x,S_y,S_z\) and uses the exact non-Abelian Haar twirl.
+$S_x,S_y,S_z$ and uses the exact non-Abelian Haar twirl.
 
 ### Appendix companions
 
-- 🌀 [`Mpemba_nonstatioinarity.ipynb`](Mpemba_nonstatioinarity.ipynb) —
+- 🌀 [`Mpemba_nonstatioinarity.ipynb`](notebooks/Mpemba_nonstatioinarity.ipynb) —
   independent reconstruction of the Appendix A nonstationarity example. Both
   initial states are generated transparently; no pickle or stored trajectory is
   used.
-- ⛓️ [`Mpemba_ETH.ipynb`](Mpemba_ETH.ipynb) — manuscript-scale Appendix B
-  calculation for an \(N=15\) ETH bath, including the full sparse
-  \(2^{16}\)-dimensional unitary evolution and Rényi crossing-time inset.
-- 📐 [`Mpemba_QFI_monotone.ipynb`](Mpemba_QFI_monotone.ipynb) — exact Appendix
+- ⛓️ [`Mpemba_ETH.ipynb`](notebooks/Mpemba_ETH.ipynb) — manuscript-scale Appendix B
+  calculation for an $N=15$ ETH bath, including the full sparse
+  $2^{16}$-dimensional unitary evolution and Rényi crossing-time inset.
+- 📐 [`Mpemba_QFI_monotone.ipynb`](notebooks/Mpemba_QFI_monotone.ipynb) — exact Appendix
   QFI reconstruction showing crossings for SLD and Wigner-Yanase metrics but
   no crossing for the harmonic-mean metric.
 - [`NOTEBOOKS.md`](NOTEBOOKS.md) gives the recommended reading order and maps
@@ -146,10 +155,10 @@ The stored data are deliberately explicit about their statistical scope:
 
 - Fig. 9 uses the manuscript system and ensemble size.
 - The non-Markovian U(1) walkthrough uses the complete 100-circuit
-  \(N_s=8,N_e=12\), 1000-layer archived-parameter ensemble. The smaller
-  24-circuit \(N_s=4,N_e=8\) file is retained only for the explicit channel
+  $N_s=8,N_e=12$, 1000-layer archived-parameter ensemble. The smaller
+  24-circuit $N_s=4,N_e=8$ file is retained only for the explicit channel
   audit of Marvian--Spekkens Eq. (3.10).
-- The SU(2) walkthrough uses the manuscript Hilbert-space size \(N_s=8,N_e=12\)
+- The SU(2) walkthrough uses the manuscript Hilbert-space size $N_s=8,N_e=12$
   and the full 100-realization ensemble. It evolves isotropic partial-SWAP
   gates with an invariant singlet bath and computes asymmetry with the exact
   SU(2) Schur-basis Haar twirl. The notebook explicitly records the
