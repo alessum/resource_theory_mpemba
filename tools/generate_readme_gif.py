@@ -26,7 +26,14 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 WIDTH = 960
 HEIGHT = 400
-SCALE = 2
+# Internal supersampling factor.  Every drawing coordinate is multiplied by
+# SCALE, so the offscreen canvas is (WIDTH * SCALE) x (HEIGHT * SCALE) and gets
+# downsampled by LANCZOS to the final output.  The output dimensions are
+# (WIDTH * OUTPUT_SCALE) x (HEIGHT * OUTPUT_SCALE); with SCALE = 2 * OUTPUT_SCALE
+# the downsample ratio stays 2:1 for strong anti-aliasing regardless of the
+# requested output resolution.
+OUTPUT_SCALE = 2
+SCALE = 2 * OUTPUT_SCALE
 FPS = 12
 DURATION = 8.0
 
@@ -164,7 +171,25 @@ def scaled_points(points: Iterable[tuple[float, float]]) -> list[tuple[int, int]
     return [(round(x * SCALE), round(y * SCALE)) for x, y in points]
 
 
-def font_path(bold: bool = False) -> str | None:
+def font_path(bold: bool = False, math: bool = False) -> str | None:
+    if math:
+        # Latin Modern Roman lacks Greek letters, subscripts, and calligraphic
+        # script capitals.  Fall back to STIX Two Text, whose Regular weight is
+        # the only serif font in the wider ecosystem that actually carries
+        # U+2130/U+2131 (script E and F); DejaVu Serif and Times New Roman
+        # render them as .notdef rectangles.  The bold flag is intentionally
+        # ignored -- STIX Two Text ships Regular and Italic only.
+        math_candidates = [
+            "/System/Library/Fonts/Supplemental/STIXTwoText.ttf",
+            "/System/Library/Fonts/Supplemental/STIXTwoMath.otf",
+            "/usr/share/fonts/opentype/stix2/STIX2Text-Regular.otf",
+            "/usr/share/fonts/truetype/stix/STIX2Text-Regular.ttf",
+        ]
+        return next(
+            (path for path in math_candidates if Path(path).exists()),
+            None,
+        )
+
     filename = "lmroman10-bold.otf" if bold else "lmroman10-regular.otf"
     latin_modern_candidates = [
         Path.home() / "Library" / "Fonts" / filename,
@@ -207,8 +232,8 @@ def font_path(bold: bool = False) -> str | None:
     return next((candidate for candidate in candidates if Path(candidate).exists()), None)
 
 
-def load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    path = font_path(bold)
+def load_font(size: int, bold: bool = False, math: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    path = font_path(bold, math)
     if path is None:
         return ImageFont.load_default()
     return ImageFont.truetype(path, size * SCALE)
@@ -223,7 +248,15 @@ FONTS = {
     "small_bold": load_font(11, bold=True),
     "equation": load_font(14),
     "footer": load_font(16, bold=True),
+    "body_bold_math": load_font(13, bold=True, math=True),
+    "small_bold_math": load_font(11, bold=True, math=True),
+    "equation_math": load_font(14, math=True),
 }
+
+# Characters that Latin Modern Roman cannot render (Greek rho, combining hat,
+# subscripts, calligraphic E and F).  Any text that contains one of these is
+# rendered with the matching "_math" font variant.
+_MATH_CHARS = frozenset("\u03c1\u0302\u2081\u2082\u2130\u2131")
 
 
 def text(
@@ -238,6 +271,10 @@ def text(
 ) -> None:
     if opacity <= 0.002:
         return
+    if any(ch in _MATH_CHARS for ch in value):
+        math_variant = f"{font}_math"
+        if math_variant in FONTS:
+            font = math_variant
     color = blend(fill, opacity) if isinstance(fill, str) else fill
     draw.text(
         (round(xy[0] * SCALE), round(xy[1] * SCALE)),
@@ -498,7 +535,7 @@ def draw_free_set(
     text(
         draw,
         (cx, cy - 36),
-        "set F",
+        "set ℱ",
         font="body_bold",
         fill=FREE_SET_COLOR,
         opacity=opacity,
@@ -636,7 +673,7 @@ def draw_plot(
     text(
         draw,
         (x0 + 43, legend_y),
-        "A",
+        "ρ̂₁",
         font="small_bold",
         opacity=opacity,
         anchor="lm",
@@ -653,7 +690,7 @@ def draw_plot(
     text(
         draw,
         (x0 + 116, legend_y),
-        "B",
+        "ρ̂₂",
         font="small_bold",
         opacity=opacity,
         anchor="lm",
@@ -726,7 +763,7 @@ def render_frame(frame_index: int) -> Image.Image:
     text(
         draw,
         (WIDTH / 2, 18),
-        "Different resources - one Mpemba criterion",
+        "Different Mpemba effects have the same physics",
         font="title",
         opacity=chrome_opacity,
         anchor="mm",
@@ -775,7 +812,7 @@ def render_frame(frame_index: int) -> Image.Image:
     draw_state_card(
         draw,
         box=(28.0, 118.0, 262.0, 188.0),
-        state="A",
+        state="ρ̂₁",
         description="initially more resourceful",
         value=float(monotone_a(0.0)),
         slow_weight=A_SLOW_WEIGHT / B_SLOW_WEIGHT,
@@ -786,7 +823,7 @@ def render_frame(frame_index: int) -> Image.Image:
     draw_state_card(
         draw,
         box=(28.0, 202.0, 262.0, 272.0),
-        state="B",
+        state="ρ̂₂",
         description="initially less resourceful",
         value=float(monotone_b(0.0)),
         slow_weight=1.0,
@@ -815,7 +852,7 @@ def render_frame(frame_index: int) -> Image.Image:
     text(
         draw,
         (305, 139),
-        "E(t)",
+        "ℰ(t)",
         font="equation",
         fill=INK,
         opacity=section_opacity,
@@ -852,7 +889,7 @@ def render_frame(frame_index: int) -> Image.Image:
     text(
         draw,
         (306, row_a),
-        "A",
+        "ρ̂₁",
         font="body_bold",
         fill=STATE_A_COLOR,
         opacity=section_opacity,
@@ -861,7 +898,7 @@ def render_frame(frame_index: int) -> Image.Image:
     text(
         draw,
         (306, row_b),
-        "B",
+        "ρ̂₂",
         font="body_bold",
         fill=STATE_B_COLOR,
         opacity=section_opacity,
@@ -916,7 +953,7 @@ def render_frame(frame_index: int) -> Image.Image:
         color=STATE_A_COLOR,
         slow_strength=slow_a,
         opacity=token_opacity * capture_alpha,
-        label="A",
+        label="ρ̂₁",
     )
     draw_token(
         draw,
@@ -925,14 +962,17 @@ def render_frame(frame_index: int) -> Image.Image:
         color=STATE_B_COLOR,
         slow_strength=slow_b,
         opacity=token_opacity * capture_alpha,
-        label="B",
+        label="ρ̂₂",
     )
 
     # The pulse is aesthetic; the exact crossing is placed from the analytic curve.
     crossing_pulse = math.exp(-((time_seconds - 3.0) / 0.28) ** 2)
     draw_plot(draw, evolution_progress, section_opacity, crossing_pulse)
 
-    return image.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+    return image.resize(
+        (WIDTH * OUTPUT_SCALE, HEIGHT * OUTPUT_SCALE),
+        Image.Resampling.LANCZOS,
+    )
 
 
 def make_global_palette(_frames: Sequence[Image.Image]) -> Image.Image:
@@ -1023,10 +1063,11 @@ def validate_model() -> None:
 
 
 def validate_gif(output: Path, expected_frames: int) -> None:
+    output_size = (WIDTH * OUTPUT_SCALE, HEIGHT * OUTPUT_SCALE)
     with Image.open(output) as animation:
         if animation.format != "GIF":
             raise RuntimeError(f"Unexpected image format: {animation.format}")
-        if animation.size != (WIDTH, HEIGHT):
+        if animation.size != output_size:
             raise RuntimeError(f"Unexpected GIF size: {animation.size}")
         # Pillow merges adjacent identical frames during optimization.
         if animation.n_frames < expected_frames * 0.6:
@@ -1112,7 +1153,8 @@ def main() -> None:
         temporary_output.unlink(missing_ok=True)
     size_mib = args.output.stat().st_size / (1024 * 1024)
     print(
-        f"Wrote {args.output} ({WIDTH}x{HEIGHT}, {frame_count} frames, "
+        f"Wrote {args.output} "
+        f"({WIDTH * OUTPUT_SCALE}x{HEIGHT * OUTPUT_SCALE}, {frame_count} frames, "
         f"{size_mib:.2f} MiB)"
     )
 
