@@ -26,10 +26,15 @@ asymmetry · symmetry restoration · open quantum systems · Lindbladian
 spectrum · random circuits · U(1) · SU(2) · ETH · quantum Fisher
 information.
 
-![Resource-theoretic picture of the Mpemba effect](figures/figure_1_resource_theory_mpemba.png)
+<!-- Regenerate with: python tools/generate_readme_gif.py -->
+![Animated schematic of the resource-theoretic Mpemba mechanism: two states evolve under the same free dynamics; state A starts with more of the chosen resource but has less overlap with its slowest relevant decay mode, so its resource monotone falls below that of state B at the Mpemba crossing](figures/resource_mpemba_mechanism_fig1.gif)
 
-*Figure 1. A Mpemba effect occurs when the initially more resourceful state
-loses its resource faster, causing the resource monotones to cross.*
+*Animated summary. Under the same free dynamics, an initially more resourceful
+state can lose the chosen resource faster when it has less overlap with the
+slowest decay mode relevant to that resource, producing a crossing of resource
+monotones. This mode-overlap mechanism provides a common description of
+thermal, symmetry, coherence, and nonstationarity Mpemba effects in classical
+and quantum settings.*
 
 
 ## 🎯 Main contributions
