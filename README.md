@@ -1,5 +1,10 @@
 # 🧊 Resource-Theoretical Unification of Mpemba Effects
 
+[![Paper](https://img.shields.io/badge/paper-Physical%20Review%20X-6f42c1)](https://doi.org/10.1103/rbt4-psfd)
+[![arXiv](https://img.shields.io/badge/arXiv-2507.16976-b31b1b)](https://arxiv.org/abs/2507.16976)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![Reproducible](https://img.shields.io/badge/reproducibility-tested-2e8b57)](tools/execute_notebooks.py)
+
 Notebooks accompanying:
 
 > Alessandro Summer, Mattia Moroder, Laetitia P. Bettmann, Xhek Turkeshi,
