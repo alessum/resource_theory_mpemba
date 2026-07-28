@@ -12,9 +12,19 @@ Notebooks accompanying:
 > Mpemba Effects: Classical and Quantum,”** *Physical Review X* **16**,
 > 011065 (2026).
 
-[Published paper](https://journals.aps.org/prx/abstract/10.1103/rbt4-psfd)
-· [DOI](https://doi.org/10.1103/rbt4-psfd)
-· [arXiv:2507.16976](https://arxiv.org/abs/2507.16976)
+**TL;DR.** We recast anomalous relaxation — the *Mpemba effect* — as
+resource dissipation in a quantum resource theory. Thermal and symmetry
+Mpemba effects become parallel instances of the same phenomenon: a state
+that is *more resourceful* initially can lose its resource faster than a
+less resourceful one, driven by its overlap with the slowest eigenmodes of
+the dissipative dynamics. This repository reproduces every worked example
+in the manuscript — from classical Markov chains to non-Abelian SU(2)
+random circuits — end-to-end from source.
+
+**Keywords:** Mpemba effect · resource theory · quantum thermodynamics ·
+asymmetry · symmetry restoration · open quantum systems · Lindbladian
+spectrum · random circuits · U(1) · SU(2) · ETH · quantum Fisher
+information.
 
 ![Resource-theoretic picture of the Mpemba effect](figures/figure_1_resource_theory_mpemba.png)
 
@@ -36,7 +46,7 @@ loses its resource faster, causing the resource monotones to cross.*
   [Walkthrough](asymm_ex6.ipynb)
 
 - **📉 A common spectral mechanism to the thermal Mpemba effect.**
-  We show that anomalous relaxation is governed by the initial state’s overlap with the eigenmodes of the dissipative map-a mechanism that has been recognised only in the thermal and nonstationary Mpemba effect by [Nava and Fabrizio](https://doi.org/10.1103/PhysRevB.100.125102) and [Carollo, Lasanta, and Lesanovsky](https://doi.org/10.1103/PhysRevLett.127.060401), a strongly symmetry-broken state can relax faster when its overlap with the   slowest symmetry-restoring mode is small or vanishes.
+  We show that anomalous relaxation is governed by the initial state’s overlap with the eigenmodes of the dissipative map — a mechanism that has been recognised only in the thermal and nonstationary Mpemba effect by [Nava and Fabrizio](https://doi.org/10.1103/PhysRevB.100.125102) and [Carollo, Lasanta, and Lesanovsky](https://doi.org/10.1103/PhysRevLett.127.060401), a strongly symmetry-broken state can relax faster when its overlap with the slowest symmetry-restoring mode is small or vanishes.
   [Manuscript: Sec. II](https://arxiv.org/html/2507.16976#S2) ·
   [Sec. III.3](https://arxiv.org/html/2507.16976#S3.SS3) ·
   [Thermal walkthrough](atherm_ex1.ipynb) ·
