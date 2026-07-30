@@ -1,6 +1,6 @@
-"""Execute and validate publishable notebooks in repository order.
+"""Execute and validate publishable notebooks without rewriting them.
 
-Pass one or more notebook filenames to execute only those files.
+Pass ``--write`` to refresh stored outputs intentionally.
 """
 
 from __future__ import annotations
@@ -34,6 +34,8 @@ NOTEBOOKS = [
 
 def main() -> None:
     requested = sys.argv[1:]
+    write = "--write" in requested
+    requested = [name for name in requested if name != "--write"]
     unknown = set(requested) - set(NOTEBOOKS)
     if unknown:
         raise ValueError(f"Unknown notebook filename(s): {sorted(unknown)}")
@@ -51,7 +53,8 @@ def main() -> None:
         )
         client.execute()
         nbformat.validate(notebook)
-        nbformat.write(notebook, path)
+        if write:
+            nbformat.write(notebook, path)
         elapsed = time.perf_counter() - started
         print(f"{filename}: {elapsed:.1f} s", flush=True)
 

@@ -1,37 +1,39 @@
-# 🧊 Resource-Theoretical Unification of Mpemba Effects
+# 🧊 Resource-Theoretical Unification of Mpemba Effects: Classical and Quantum
 
 [![Paper](https://img.shields.io/badge/paper-Physical%20Review%20X-6f42c1)](https://doi.org/10.1103/rbt4-psfd)
 [![arXiv](https://img.shields.io/badge/arXiv-2507.16976-b31b1b)](https://arxiv.org/abs/2507.16976)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
-[![Reproducible](https://img.shields.io/badge/reproducibility-tested-2e8b57)](tools/execute_notebooks.py)
+[![Code license: MIT](https://img.shields.io/badge/code-MIT-2f6f9f.svg)](LICENSE)
 
 Notebooks accompanying:
-
 > Alessandro Summer, Mattia Moroder, Laetitia P. Bettmann, Xhek Turkeshi,
 > Iman Marvian, and John Goold, **“Resource-Theoretical Unification of
 > Mpemba Effects: Classical and Quantum,”** *Physical Review X* **16**,
 > 011065 (2026).
 
-**TL;DR.** We recast anomalous relaxation — the *Mpemba effect* — as resource dissipation in a quantum resource theory. Thermal and symmetry Mpemba effects become parallel instances of the same phenomenon: a state that is *more resourceful* initially can lose its resource faster than a less resourceful one, driven by its overlap with the slowest eigenmodes of the dissipative dynamics. This repository reproduces every worked example in the manuscript — from classical Markov chains to non-Abelian SU(2) random circuits — end-to-end from source.
-
-**Keywords:** Mpemba effect · resource theory · quantum thermodynamics · asymmetry · symmetry restoration · open quantum systems · Lindbladian spectrum · random circuits · U(1) · SU(2) · ETH · quantum Fisher information.
+**TL;DR.** We recast anomalous relaxation — the *Mpemba effect* — as resource dissipation in a quantum resource theory. Thermal and symmetry Mpemba effects become parallel instances of the same phenomenon: a state that is *more resourceful* initially can lose its resource faster than a less resourceful one, driven by its overlap with the slowest eigenmodes of the dissipative dynamics. This repository provides an executable companion to every worked example in the paper, from classical Markov chains to non-Abelian SU(2) random circuits. Each walkthrough identifies whether it is an exact reproduction, a raw-data-backed calculation, or an independent reconstruction necessitated by unavailable manuscript-era inputs.
 
 <!-- Regenerate with: python tools/generate_readme_gif.py -->
 ![Animated schematic of the resource-theoretic Mpemba mechanism: two states evolve under the same free dynamics; state rho_1 starts with more of the chosen resource but has less overlap with its slowest relevant decay mode, so its resource monotone falls below that of state rho_2 at the Mpemba crossing](figures/figure1.gif)
 
-*Animated summary. Under the same free dynamics, an initially more resourceful state can lose the chosen resource faster when it has less overlap with the slowest decay mode relevant to that resource, producing a crossing of resource monotones. This mode-overlap mechanism provides a common description of thermal, symmetry, coherence, and nonstationarity Mpemba effects in classical and quantum settings.*
+*Under the same free dynamics, an initially more resourceful state can lose the chosen resource faster when it has less overlap with the slowest decay mode relevant to that resource, producing a crossing of resource monotones. This mode-overlap mechanism provides a common description of thermal, symmetry, coherence, and nonstationarity Mpemba effects in classical and quantum settings.*
 
+## 📰 Media coverage and background
+
+- **Science:** [“Hot things can freeze faster than cool ones. Now, this paradox has gone quantum”](https://www.science.org/content/article/hot-things-can-freeze-faster-cool-ones-now-paradox-has-gone-quantum) — a popular-science feature connecting the classical freezing paradox to recent quantum Mpemba research and this resource-theoretic framework.
+- **Phys.org:** [“Framework unifies the classical and quantum Mpemba effects”](https://phys.org/news/2026-03-framework-classical-quantum-mpemba-effects.html) — an accessible overview of this work and its common slow-mode mechanism.
+- **Wikipedia:** This work can also be found among the references on [John Goold (physicist)](https://en.wikipedia.org/wiki/John_Goold_(physicist)). For a general introduction to the effect, see [Mpemba effect](https://en.wikipedia.org/wiki/Mpemba_effect), and for historical and biographical context, see [Erasto B. Mpemba](https://en.wikipedia.org/wiki/Erasto_B._Mpemba).
 
 ## 🎯 Main contributions
 
-- **🧩 One resource-theoretic framework for different Mpemba effects.**
-  Different Mpemba effect, as symmetry restoration and thermalization ones can be described as the same phenomena with just a different resource theory (asymmetry and athermality). In such picture, free states and free operations determine which resource is dissipated during relaxation. Nonequilibrium free energy is expressed through relative entropy to the thermal state, while the relative entropy of asymmetry measures distance from the symmetry-invariant states. The thermal and symmetry Mpemba effects are therefore parallel instances of anomalously fast resource depletion: symmetry restoration is the dissipation of asymmetry.
+- **🧩 Resource theory supplies a common definition of different Mpemba effects.**
+  Thermal and symmetry Mpemba effects are both reversals of resource ordering under free dynamics, specialized to athermality and asymmetry. Crucially, the two canonical diagnostics used here share the [relative entropy of resource](https://doi.org/10.1103/RevModPhys.91.025001) construction, $R_{\mathrm{rel}}^{\mathcal F}(\rho)=\min_{\sigma\in\mathcal F}D(\rho\Vert\sigma)$, with only the free-state set changing. For athermality it gives $D(\rho\Vert\pi_\beta)=\beta[F(\rho)-F(\pi_\beta)]$, the [excess nonequilibrium free energy](https://doi.org/10.1103/PhysRevLett.133.140404) in units of $k_{\mathrm B}T$. For asymmetry it gives $D(\rho\Vert\mathcal G[\rho])=S(\mathcal G[\rho])-S(\rho)$, the relative entropy of asymmetry (called [entanglement asymmetry](https://doi.org/10.1038/s41467-023-37747-8) in the reduced-subsystem setting). These are distinct monotones, but instances of the same construction: a Mpemba crossing is precisely the initially more resourceful state becoming the less resourceful one.
   [Manuscript: Sec. I.1](https://arxiv.org/html/2507.16976#S1.SS1) ·
   [Sec. IV](https://arxiv.org/html/2507.16976#S4) ·
   [Walkthrough](notebooks/asymm_ex6.ipynb)
 
-- **📉 A common spectral mechanism to the thermal Mpemba effect.**
-  We show that anomalous relaxation is governed by the initial state’s overlap with the (resourceful) eigenmodes of the dissipative map — a mechanism that has been recognised only in the thermal and nonstationary Mpemba effect by [Nava and Fabrizio](https://doi.org/10.1103/PhysRevB.100.125102) and [Carollo, Lasanta, and Lesanovsky](https://doi.org/10.1103/PhysRevLett.127.060401), a strongly symmetry-broken state can relax faster when its overlap with the slowest symmetry-restoring mode is small or vanishes.
+- **📉 A common spectral mechanism links thermal and symmetry Mpemba effects.**
+  We show that anomalous relaxation is governed by the initial state’s overlap with the resourceful eigenmodes of the dissipative map — a mechanism previously recognized in thermal and nonstationary Mpemba effects by [Nava and Fabrizio](https://doi.org/10.1103/PhysRevB.100.125102) and [Carollo, Lasanta, and Lesanovsky](https://doi.org/10.1103/PhysRevLett.127.060401). In the symmetry setting, a strongly symmetry-broken state can relax faster when its overlap with the slowest symmetry-restoring mode is small or vanishes.
   [Manuscript: Sec. II](https://arxiv.org/html/2507.16976#S2) ·
   [Sec. III.3](https://arxiv.org/html/2507.16976#S3.SS3) ·
   [Thermal walkthrough](notebooks/atherm_ex1.ipynb) ·
@@ -60,7 +62,27 @@ Notebooks accompanying:
 
 ## 📁 Repository contents
 
-The thirteen top-level notebooks are publication-oriented walkthroughs of the main-text and appendix examples. Each identifies its manuscript location and reproduction status, constructs the model, verifies the relevant structural properties, and only then tests the Mpemba crossing. The SU(2) notebook recomputes the five Fig. 11 curves from 100 raw full-SU(2) circuit realizations and reproduces all ten pairwise crossings. It verifies covariance under $S_x,S_y,S_z$ and uses the exact non-Abelian Haar twirl.
+The thirteen notebooks in [`notebooks/`](notebooks/) are publication-oriented walkthroughs of the main-text and appendix examples. Each identifies its manuscript location and reproduction status, constructs the model, verifies the relevant structural properties, and only then tests the Mpemba crossing. The SU(2) notebook recomputes the five Fig. 11 curves from 100 raw full-SU(2) circuit realizations and reproduces all ten pairwise crossings. It verifies covariance under $S_x,S_y,S_z$ and uses the exact non-Abelian Haar twirl.
+
+
+## 🚀 Quick start
+
+Create a virtual environment, install the dependencies, and execute the
+lightweight single-qubit introduction:
+
+```bash
+git clone https://github.com/alessum/resource_theory_mpemba.git
+cd resource_theory_mpemba
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python tools/execute_notebooks.py atherm_ex2.ipynb
+```
+
+The final command checks the notebook entirely in memory and does not modify
+the tracked file. See the [notebook guide](NOTEBOOKS.md#running-the-notebooks)
+for the full notebook map and computational scope.
+
 
 ### Appendix companions
 
@@ -75,32 +97,38 @@ The thirteen top-level notebooks are publication-oriented walkthroughs of the ma
 
 ## ▶️ Running the notebooks
 
-The notebooks require Python 3 with NumPy, SciPy, Matplotlib, `nbformat`, and `nbclient`. Run commands from the repository root.
-
-To execute every notebook and refresh its stored outputs:
+Run commands from the repository root. The notebook checker executes in memory
+by default, so it does not alter tracked outputs:
 
 ```bash
+python -m pip install -r requirements.txt
 python tools/execute_notebooks.py
 ```
 
-To rebuild and execute only the appendix companions:
+Pass notebook filenames to check only a subset. Add `--write` only when you intentionally want to refresh stored outputs:
+
+```bash
+python tools/execute_notebooks.py --write atherm_ex2.ipynb
+```
+
+To rebuild and refresh only the appendix companions:
 
 ```bash
 python tools/build_publishable_notebooks.py \
   Mpemba_nonstatioinarity.ipynb Mpemba_ETH.ipynb Mpemba_QFI_monotone.ipynb
-python tools/execute_notebooks.py \
+python tools/execute_notebooks.py --write \
   Mpemba_nonstatioinarity.ipynb Mpemba_ETH.ipynb Mpemba_QFI_monotone.ipynb
 ```
 
-To rebuild the publishable notebooks, regenerate the standard circuit datasets, and execute everything:
+To rebuild the publishable notebooks, regenerate the standard local circuit datasets, and refresh every stored output:
 
 ```bash
 python tools/build_publishable_notebooks.py
 python tools/generate_circuit_data.py
-python tools/execute_notebooks.py
+python tools/execute_notebooks.py --write
 ```
 
-The exact-size non-Markovian U(1) reference dataset uses archived gate parameters from the companion repository. Rebuild it with:
+Paper-scale circuit datasets have explicit commands, runtimes, provenance, and scope in [`data/circuit_examples/README.md`](data/circuit_examples/README.md). The exact-size non-Markovian U(1) reference dataset uses archived gate parameters from the companion repository:
 
 ```bash
 python tools/generate_circuit_data.py \
@@ -115,11 +143,14 @@ The generator verifies the upstream parameter file by SHA-256 before running. Th
 
 The stored data are deliberately explicit about their statistical scope:
 
-- The Markovian U(1) evolution (Fig. 9) uses the manuscript system ($N_s{=}4$), environment ($N_e{=}2$), and ensemble size ($100$ independent circuit realizations).
-- The non-Markovian U(1) walkthrough uses the complete 100-circuit $N_s=8,N_e=12$, 1000-layer archived-parameter ensemble. The smaller 24-circuit $N_s=4,N_e=8$ file is retained only for the explicit channel audit of [Marvian--Spekkens](https://arxiv.org/abs/1312.0680) Eq. (3.10) as a mode-transfer reconstruction identity. The SU(2) walkthrough audits the same Eq. (3.10) as a contraction bound on the rank-1 irreducible tensor of an isotropic partial-SWAP dilation, so both non-Markovian notebooks certify their covariant reduced channel against the identical Marvian--Spekkens statement.
-- The SU(2) walkthrough uses the manuscript Hilbert-space size $N_s=8,N_e=12$ and the full 100-realization ensemble. It evolves isotropic partial-SWAP gates with an invariant singlet bath and computes asymmetry with the exact SU(2) Schur-basis Haar twirl. The notebook explicitly records the figure-matching initial-angle and time-axis conventions because those conventions are absent from the archived raw data. It does not use the companion repository's U(1) execution path.
+- The Markovian U(1) evolution (Fig. 9) is a paper-scale independent reproduction using the manuscript system ($N_s{=}4$), environment ($N_e{=}2$), and ensemble size ($100$ deterministic circuit realizations); it is not a replay of an unpublished original random ensemble.
+- The non-Markovian U(1) walkthrough is reference-backed: it uses every archived parameter row from the pinned companion repository for the complete 100-circuit $N_s=8,N_e=12$, 1000-layer ensemble. The smaller 24-circuit $N_s=4,N_e=8$ file is retained only for the explicit channel audit of [Marvian--Spekkens](https://arxiv.org/abs/1312.0680) Eq. (3.10) as a mode-transfer reconstruction identity.
+- The SU(2) walkthrough is a paper-scale, figure-matching independent reconstruction at $N_s=8,N_e=12$ with 100 realizations. It evolves isotropic partial-SWAP gates with an invariant singlet bath and computes asymmetry with the exact SU(2) Schur-basis Haar twirl. Its inferred initial-angle and displayed-time conventions are recorded explicitly because they are absent from the printed equations and public original data.
+- The U(1) and SU(2) non-Markovian checks audit the same Marvian--Spekkens Eq. (3.10): as an explicit mode-transfer reconstruction identity for U(1), and as a contraction bound on the rank-1 irreducible tensor for SU(2).
 
 ## 📚 Citation
+
+Use GitHub’s **Cite this repository** control, backed by [`CITATION.cff`](CITATION.cff), for machine-readable citation metadata. The published article remains the preferred scholarly citation:
 
 ```bibtex
 @article{Summer2026Mpemba,
@@ -132,3 +163,8 @@ The stored data are deliberately explicit about their statistical scope:
   doi     = {10.1103/rbt4-psfd}
 }
 ```
+
+## ⚖️ License
+
+The repository code is available under the [MIT License](LICENSE).
+Third-party materials retain their original terms.

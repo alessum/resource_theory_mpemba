@@ -1,0 +1,60 @@
+cff-version: 1.2.0
+message: >-
+  If you use these notebooks or data, please cite this repository and the
+  accompanying Physical Review X article.
+type: software
+title: "resource_theory_mpemba: reproducible notebooks and data"
+abstract: >-
+  Reproducible Python notebooks and raw data accompanying
+  "Resource-Theoretical Unification of Mpemba Effects: Classical and
+  Quantum." The repository covers classical and quantum thermal relaxation,
+  symmetry restoration, modes of asymmetry, and U(1)- and SU(2)-symmetric
+  random circuits.
+authors:
+  - family-names: Summer
+    given-names: Alessandro
+    orcid: "https://orcid.org/0009-0009-0791-7632"
+  - family-names: Moroder
+    given-names: Mattia
+    orcid: "https://orcid.org/0000-0002-1046-9991"
+  - family-names: Bettmann
+    given-names: Laetitia P.
+    orcid: "https://orcid.org/0000-0001-5153-5038"
+repository-code: "https://github.com/alessum/resource_theory_mpemba"
+url: "https://github.com/alessum/resource_theory_mpemba"
+license-url: "https://github.com/alessum/resource_theory_mpemba/blob/main/LICENSE"
+keywords:
+  - Mpemba effect
+  - quantum resource theory
+  - quantum thermodynamics
+  - anomalous relaxation
+  - asymmetry
+  - reproducible research
+preferred-citation:
+  type: article
+  title: "Resource-Theoretical Unification of Mpemba Effects: Classical and Quantum"
+  authors:
+    - family-names: Summer
+      given-names: Alessandro
+      orcid: "https://orcid.org/0009-0009-0791-7632"
+    - family-names: Moroder
+      given-names: Mattia
+      orcid: "https://orcid.org/0000-0002-1046-9991"
+    - family-names: Bettmann
+      given-names: Laetitia P.
+      orcid: "https://orcid.org/0000-0001-5153-5038"
+    - family-names: Turkeshi
+      given-names: Xhek
+      orcid: "https://orcid.org/0000-0003-1093-3771"
+    - family-names: Marvian
+      given-names: Iman
+      orcid: "https://orcid.org/0000-0001-6719-061X"
+    - family-names: Goold
+      given-names: John
+      orcid: "https://orcid.org/0000-0001-6702-1736"
+  doi: 10.1103/rbt4-psfd
+  journal: Physical Review X
+  volume: "16"
+  issue: "1"
+  start: "011065"
+  year: 2026
