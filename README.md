@@ -37,7 +37,7 @@ Notebooks accompanying:
   [Manuscript: Sec. II](https://arxiv.org/html/2507.16976#S2) ·
   [Sec. III.3](https://arxiv.org/html/2507.16976#S3.SS3) ·
   [Thermal walkthrough](notebooks/atherm_ex1.ipynb) ·
-  [Symmetry-mode walkthrough](notebooks/asymmetry_modes_example.ipynb)
+  [Symmetry-mode walkthrough](notebooks/asymm_modes_example.ipynb)
 
 - **⚖️ The symmetry Mpemba effect is not inherently quantum.**
   It already occurs in classical Markovian systems. Entanglement can accompany particular realizations, but it is not required for the effect.
@@ -51,7 +51,7 @@ Notebooks accompanying:
   [Sec. V](https://arxiv.org/html/2507.16976#S5) ·
   [Appendix (G-invariance → G-covariance)](https://arxiv.org/html/2507.16976#A6) ·
   [Non-Markovian U(1) circuits](notebooks/asymm_ex4.1.a.ipynb) ·
-  [ETH isolated bath](notebooks/Mpemba_ETH.ipynb)
+  [ETH isolated bath](notebooks/atherm_ETH.ipynb)
 
 - **🎲 Random circuits reveal the role of modes of asymmetry.**
   In random symmetry-preserving circuits — both Abelian U(1) (magnetization-conserving) and non-Abelian SU(2) — sectors carrying higher _modes of asymmetry_ decay faster on average. Restricting the initial state to those sectors suppresses its overlap with the slowest symmetry-restoring mode and produces a _spectrum-agnostic_ strong Mpemba effect: the mechanism operates statistically across random realizations without diagonalizing any specific channel.
@@ -86,9 +86,9 @@ for the full notebook map and computational scope.
 
 ### Appendix companions
 
-- 🌀 [`Mpemba_nonstatioinarity.ipynb`](notebooks/Mpemba_nonstatioinarity.ipynb) —    independent reconstruction of the Appendix A nonstationarity example. Both initial states are generated transparently; no pickle or stored trajectory is used.
-- ⛓️ [`Mpemba_ETH.ipynb`](notebooks/Mpemba_ETH.ipynb) — manuscript-scale Appendix B calculation for an $N=15$ ETH bath, including the full sparse $2^{16}$-dimensional unitary evolution and Rényi crossing-time inset.
-- 📐 [`Mpemba_QFI_monotone.ipynb`](notebooks/Mpemba_QFI_monotone.ipynb) — exact Appendix QFI reconstruction showing crossings for SLD and Wigner-Yanase metrics but no crossing for the harmonic-mean metric.
+- 🌀 [`non-stationarity.ipynb`](notebooks/non-stationarity.ipynb) —    independent reconstruction of the Appendix A nonstationarity example. Both initial states are generated transparently; no pickle or stored trajectory is used.
+- ⛓️ [`atherm_ETH.ipynb`](notebooks/atherm_ETH.ipynb) — manuscript-scale Appendix B calculation for an $N=15$ ETH bath, including the full sparse $2^{16}$-dimensional unitary evolution and Rényi crossing-time inset.
+- 📐 [`quantum-fisher-info.ipynb`](notebooks/quantum-fisher-info.ipynb) — exact Appendix QFI reconstruction showing crossings for SLD and Wigner-Yanase metrics but no crossing for the harmonic-mean metric.
 - [`NOTEBOOKS.md`](NOTEBOOKS.md) gives the recommended reading order and maps every notebook to the relevant manuscript section and figure.
 - [`tools/notebook_utils.py`](tools/notebook_utils.py) contains shared numerical routines.
 - [`tools/circuit_data.py`](tools/circuit_data.py) implements the reproducible random-circuit simulations.
@@ -115,9 +115,9 @@ To rebuild and refresh only the appendix companions:
 
 ```bash
 python tools/build_publishable_notebooks.py \
-  Mpemba_nonstatioinarity.ipynb Mpemba_ETH.ipynb Mpemba_QFI_monotone.ipynb
+  non-stationarity.ipynb atherm_ETH.ipynb quantum-fisher-info.ipynb
 python tools/execute_notebooks.py --write \
-  Mpemba_nonstatioinarity.ipynb Mpemba_ETH.ipynb Mpemba_QFI_monotone.ipynb
+  non-stationarity.ipynb atherm_ETH.ipynb quantum-fisher-info.ipynb
 ```
 
 To rebuild the publishable notebooks, regenerate the standard local circuit datasets, and refresh every stored output:

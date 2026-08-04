@@ -596,7 +596,7 @@ write_notebook(
 
 
 write_notebook(
-    "asymmetry_modes_example.ipynb",
+    "asymm_modes_example.ipynb",
     [
         md(
             r"""
@@ -2272,7 +2272,7 @@ write_notebook(
 
 
 write_notebook(
-    "Mpemba_nonstatioinarity.ipynb",
+    "non-stationarity.ipynb",
     [
         md(
             r"""
@@ -2515,7 +2515,7 @@ write_notebook(
 
 
 write_notebook(
-    "Mpemba_ETH.ipynb",
+    "atherm_ETH.ipynb",
     [
         md(
             r"""
@@ -2996,7 +2996,7 @@ import scipy.sparse.linalg as sla
 
 
 write_notebook(
-    "Mpemba_QFI_monotone.ipynb",
+    "quantum-fisher-info.ipynb",
     [
         md(
             r"""

@@ -843,6 +843,35 @@ def su2_tilted_state(n_qubits: int, theta: float) -> np.ndarray:
     return state / la.norm(state)
 
 
+def su2_local_tilt_state(n_qubits: int, theta: float) -> np.ndarray:
+    """SU(2) analog of the U(1) tilted product state |theta>^{n_qubits}.
+
+    Applies the single-qubit rotation ``exp(-i theta Y / 2)`` to the *first*
+    qubit of every singlet pair while leaving the second qubit fixed. Each
+    pair evolves from the singlet ``|xi> = (|01> - |10>)/sqrt(2)``
+    (``j_pair = 0``) into a superposition with the Bell state
+    ``|phi+> = (|00> + |11>)/sqrt(2)`` (``j_pair = 1``):
+
+        (exp(-i theta Y / 2) (x) I) |xi>
+            = cos(theta/2) |xi> + sin(theta/2) |phi+>.
+
+    At ``theta = 0`` the joint state is a product of singlets — total spin
+    ``j = 0``, SU(2)-invariant, only the ``mu = 0`` mode populated. At
+    ``theta = pi / 2`` the joint state has content in every total-spin
+    sector ``j = 0, 1, ..., n_qubits / 2``, so every operator-space mode
+    ``mu = 0, ..., n_qubits`` is populated with weight that decays
+    monotonically with ``mu`` — mirroring the smooth binomial spread of
+    the U(1) product state ``|theta>^{n_qubits}``.
+    """
+    if n_qubits % 2:
+        raise ValueError("Requires an even number of qubits.")
+    single_rot = la.expm(-0.5j * theta * Y)
+    pair_rot = np.kron(single_rot, np.eye(2, dtype=complex))
+    singlet_ket = np.array([0, 1, -1, 0], dtype=complex) / np.sqrt(2)
+    tilted_pair = pair_rot @ singlet_ket
+    return kron_all([tilted_pair] * (n_qubits // 2))
+
+
 def collective_spin(n_qubits: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return tuple(
         sum(

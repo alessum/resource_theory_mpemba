@@ -15,20 +15,22 @@ from nbclient import NotebookClient
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOKS_DIR = ROOT / "notebooks"
+# Paper reading order (see NOTEBOOKS.md). Each trailing comment gives the
+# manuscript location so the sequence maps 1:1 onto the paper.
 NOTEBOOKS = [
-    "atherm_ex1.ipynb",
-    "atherm_ex2.ipynb",
-    "asymmetry_modes_example.ipynb",
-    "asymm_ex1.ipynb",
-    "asymm_ex2.ipynb",
-    "asymm_ex3.ipynb",
-    "asymm_ex4.ipynb",
-    "asymm_ex4.1.a.ipynb",
-    "asymm_ex5.ipynb",
-    "asymm_ex6.ipynb",
-    "Mpemba_nonstatioinarity.ipynb",
-    "Mpemba_ETH.ipynb",
-    "Mpemba_QFI_monotone.ipynb",
+    "atherm_ex1.ipynb",           # 1  Sec. II B,    Fig. 2
+    "atherm_ex2.ipynb",           # 2  Sec. II C,    Fig. 3
+    "asymm_modes_example.ipynb",  # 3  Sec. III C,   Fig. 4
+    "asymm_ex1.ipynb",            # 4  Sec. III D,   Fig. 5
+    "asymm_ex2.ipynb",            # 5  Sec. III E,   Fig. 6
+    "asymm_ex3.ipynb",            # 6  Sec. III F,   Fig. 7
+    "asymm_ex4.ipynb",            # 7  Sec. III G 1, Fig. 9
+    "asymm_ex4.1.a.ipynb",        # 8  Sec. III G 1, Fig. 10
+    "asymm_ex5.ipynb",            # 9  Sec. III G 2, Fig. 11
+    "asymm_ex6.ipynb",            # 10 Sec. IV,      Figs. 12-13
+    "non-stationarity.ipynb",     # 11 Appendix A,   Fig. S1  / pub. Fig. 14
+    "atherm_ETH.ipynb",           # 12 Appendix B,   Fig. S2  / pub. Fig. 15
+    "quantum-fisher-info.ipynb",  # 13 Appendix D,   Fig. S3  / pub. Fig. 17
 ]
 
 
